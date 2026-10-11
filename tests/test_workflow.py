@@ -1,6 +1,11 @@
 import unittest
 
-from campusflow.workflow import assign_ticket, change_status, reopen_ticket
+from campusflow.workflow import (
+    assign_ticket,
+    change_status,
+    get_work_queue,
+    reopen_ticket,
+)
 
 
 def make_tickets():
@@ -131,6 +136,46 @@ class TestReopenTicket(unittest.TestCase):
         reopen_ticket(tickets, "T004")
         change_status(tickets, "T004", "in_progress")
         self.assertEqual(tickets[3]["status"], "in_progress")
+
+
+def queue_ticket(number, priority, status="open"):
+    """Build a small ticket for queue tests."""
+    return {"id": f"T{number:03d}", "title": "x", "category": "Other",
+            "urgency": "low", "affected_users": 1, "priority": priority,
+            "status": status, "assigned_to": None}
+
+
+class TestGetWorkQueue(unittest.TestCase):
+    def test_orders_by_priority_critical_first(self):
+        tickets = [queue_ticket(1, "low"), queue_ticket(2, "critical"),
+                   queue_ticket(3, "medium"), queue_ticket(4, "high")]
+        ids = [t["id"] for t in get_work_queue(tickets)]
+        self.assertEqual(ids, ["T002", "T004", "T003", "T001"])
+
+    def test_ties_go_to_the_earlier_id(self):
+        tickets = [queue_ticket(3, "high"), queue_ticket(1, "high"), queue_ticket(2, "high")]
+        ids = [t["id"] for t in get_work_queue(tickets)]
+        self.assertEqual(ids, ["T001", "T002", "T003"])
+
+    def test_numeric_order_not_text_order(self):
+        tickets = [queue_ticket(1000, "low"), queue_ticket(999, "low")]
+        ids = [t["id"] for t in get_work_queue(tickets)]
+        self.assertEqual(ids, ["T999", "T1000"])
+
+    def test_only_open_tickets_are_included(self):
+        tickets = [queue_ticket(1, "high", "in_progress"),
+                   queue_ticket(2, "high", "resolved"),
+                   queue_ticket(3, "low", "open")]
+        ids = [t["id"] for t in get_work_queue(tickets)]
+        self.assertEqual(ids, ["T003"])
+
+    def test_empty_list_gives_empty_queue(self):
+        self.assertEqual(get_work_queue([]), [])
+
+    def test_original_list_is_not_reordered(self):
+        tickets = [queue_ticket(1, "low"), queue_ticket(2, "critical")]
+        get_work_queue(tickets)
+        self.assertEqual([t["id"] for t in tickets], ["T001", "T002"])
 
 
 if __name__ == "__main__":

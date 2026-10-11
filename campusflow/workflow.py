@@ -1,6 +1,6 @@
 """Assignment and status workflow for CampusFlow."""
 
-from campusflow.tickets import STATUSES, get_ticket
+from campusflow.tickets import PRIORITIES, STATUSES, get_ticket
 
 # Which status a ticket may move to, from each status (decision D10).
 # "resolved" has no way forward here: only reopen_ticket can bring it back.
@@ -50,3 +50,14 @@ def reopen_ticket(tickets, ticket_id):
         raise ValueError(f"Ticket {ticket['id']} is not resolved, so it cannot be reopened")
     ticket["status"] = "open"
     return ticket
+
+
+def queue_order(ticket):
+    """Sorting key: priority first (critical to low), then the earlier ID."""
+    return (PRIORITIES.index(ticket["priority"]), int(ticket["id"][1:]))
+
+
+def get_work_queue(tickets):
+    """Return the open tickets, most urgent first (decision D9, section 5)."""
+    open_tickets = [ticket for ticket in tickets if ticket["status"] == "open"]
+    return sorted(open_tickets, key=queue_order)
