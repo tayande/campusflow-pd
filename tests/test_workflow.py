@@ -107,6 +107,12 @@ class TestChangeStatus(unittest.TestCase):
         with self.assertRaises(ValueError):
             change_status(make_tickets(), "T002", "banana")
 
+    def test_moving_to_the_same_status_is_rejected(self):
+        tickets = make_tickets()
+        with self.assertRaises(ValueError):
+            change_status(tickets, "T003", "in_progress")
+        self.assertEqual(tickets[2]["status"], "in_progress")
+
     def test_unknown_ticket_is_rejected(self):
         with self.assertRaises(ValueError):
             change_status(make_tickets(), "T999", "in_progress")
@@ -168,6 +174,11 @@ class TestGetWorkQueue(unittest.TestCase):
                    queue_ticket(3, "low", "open")]
         ids = [t["id"] for t in get_work_queue(tickets)]
         self.assertEqual(ids, ["T003"])
+
+    def test_urgent_ticket_that_is_in_progress_is_not_in_the_queue(self):
+        tickets = [queue_ticket(1, "critical", "in_progress"), queue_ticket(2, "low")]
+        ids = [t["id"] for t in get_work_queue(tickets)]
+        self.assertEqual(ids, ["T002"])
 
     def test_empty_list_gives_empty_queue(self):
         self.assertEqual(get_work_queue([]), [])

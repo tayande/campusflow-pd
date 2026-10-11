@@ -156,5 +156,135 @@ class TestListAndView(MenuTestCase):
             self.assertEqual(file.read(), before)
 
 
+def make_workflow_tickets():
+    """Tickets in every state, for the workflow menu options."""
+    def ticket(number, priority, status, assigned_to=None):
+        return {"id": f"T{number:03d}", "title": f"Problem {number}",
+                "category": "Other", "urgency": "low", "affected_users": 1,
+                "priority": priority, "status": status, "assigned_to": assigned_to}
+    return [
+        ticket(1, "low", "open"),
+        ticket(2, "critical", "open", "Sam"),
+        ticket(3, "high", "in_progress", "Ada"),
+        ticket(4, "medium", "resolved", "Kim"),
+    ]
+
+
+class WorkflowMenuTestCase(MenuTestCase):
+    def setUp(self):
+        super().setUp()
+        save_tickets(make_workflow_tickets(), self.path)
+
+    def file_text(self):
+        with open(self.path, encoding="utf-8") as file:
+            return file.read()
+
+    def saved(self, ticket_id):
+        for ticket in load_tickets(self.path):
+            if ticket["id"] == ticket_id:
+                return ticket
+
+
+class TestMenuListsAllOptions(WorkflowMenuTestCase):
+    def test_menu_shows_the_workflow_options(self):
+        self.use_menu(["0"])
+        for label in ["Assign a ticket", "Change a ticket's status",
+                      "Reopen a resolved ticket", "Show the work queue",
+                      "Show the report"]:
+            self.assertIn(label, self.text())
+
+
+class TestAssignOption(WorkflowMenuTestCase):
+    def test_assign_saves_the_name(self):
+        self.use_menu(["4", "t001", "  Lee ", "0"])
+        self.assertEqual(self.saved("T001")["assigned_to"], "Lee")
+        self.assertIn("T001 is now assigned to Lee.", self.output)
+
+    def test_assign_unknown_ticket_shows_error_and_changes_nothing(self):
+        before = self.file_text()
+        self.use_menu(["4", "T999", "Lee", "0"])
+        self.assertIn("Error: Ticket T999 not found", self.output)
+        self.assertEqual(self.file_text(), before)
+
+    def test_assign_blank_name_is_rejected(self):
+        before = self.file_text()
+        self.use_menu(["4", "T001", "   ", "0"])
+        self.assertIn("Error: Staff name cannot be blank", self.output)
+        self.assertEqual(self.file_text(), before)
+
+    def test_assign_resolved_ticket_is_rejected(self):
+        before = self.file_text()
+        self.use_menu(["4", "T004", "Lee", "0"])
+        self.assertIn("Error:", self.text())
+        self.assertEqual(self.file_text(), before)
+
+
+class TestStatusOption(WorkflowMenuTestCase):
+    def test_status_change_is_saved(self):
+        self.use_menu(["5", "T003", "resolved", "0"])
+        self.assertEqual(self.saved("T003")["status"], "resolved")
+        self.assertIn("T003 is now resolved.", self.output)
+
+    def test_assigned_ticket_can_start(self):
+        self.use_menu(["5", "T002", "in_progress", "0"])
+        self.assertEqual(self.saved("T002")["status"], "in_progress")
+
+    def test_unassigned_ticket_cannot_start(self):
+        before = self.file_text()
+        self.use_menu(["5", "T001", "in_progress", "0"])
+        self.assertIn("Error: Assign the ticket", self.text())
+        self.assertEqual(self.file_text(), before)
+
+    def test_nonsense_status_is_rejected(self):
+        before = self.file_text()
+        self.use_menu(["5", "T002", "banana", "0"])
+        self.assertIn("Error: Status must be one of", self.text())
+        self.assertEqual(self.file_text(), before)
+
+
+class TestReopenOption(WorkflowMenuTestCase):
+    def test_reopen_keeps_the_assignee(self):
+        self.use_menu(["6", "T004", "0"])
+        ticket = self.saved("T004")
+        self.assertEqual(ticket["status"], "open")
+        self.assertEqual(ticket["assigned_to"], "Kim")
+        self.assertIn("T004 is open again.", self.output)
+
+    def test_reopen_a_ticket_that_is_not_resolved_is_rejected(self):
+        before = self.file_text()
+        self.use_menu(["6", "T001", "0"])
+        self.assertIn("Error:", self.text())
+        self.assertEqual(self.file_text(), before)
+
+
+class TestQueueAndReportOptions(WorkflowMenuTestCase):
+    def test_queue_shows_open_tickets_most_urgent_first(self):
+        self.use_menu(["7", "0"])
+        self.assertIn("Work queue (most urgent first):", self.output)
+        lines = [line for line in self.output if line[:4] in ("1. T", "2. T", "3. T")]
+        self.assertEqual(len(lines), 2)  # T003 is in progress, T004 is resolved
+        self.assertTrue(lines[0].startswith("1. T002"))
+        self.assertTrue(lines[1].startswith("2. T001"))
+
+    def test_empty_queue_message(self):
+        save_tickets([], self.path)
+        self.use_menu(["7", "0"])
+        self.assertIn("The work queue is empty.", self.output)
+
+    def test_report_shows_the_counts(self):
+        self.use_menu(["8", "0"])
+        self.assertIn("Total tickets: 4", self.output)
+        self.assertIn("  open: 2", self.output)
+        self.assertIn("  in_progress: 1", self.output)
+        self.assertIn("  resolved: 1", self.output)
+        self.assertIn("  critical: 1", self.output)
+        self.assertIn("  low: 1", self.output)
+
+    def test_queue_and_report_do_not_change_the_file(self):
+        before = self.file_text()
+        self.use_menu(["7", "8", "0"])
+        self.assertEqual(self.file_text(), before)
+
+
 if __name__ == "__main__":
     unittest.main()

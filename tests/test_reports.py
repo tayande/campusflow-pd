@@ -39,6 +39,14 @@ class TestBuildReport(unittest.TestCase):
         self.assertEqual(sum(report["by_status"].values()), report["total"])
         self.assertEqual(sum(report["by_priority"].values()), report["total"])
 
+    def test_unknown_status_is_rejected(self):
+        with self.assertRaises(ValueError):
+            build_report([report_ticket(1, "low", "done")])
+
+    def test_unknown_priority_is_rejected(self):
+        with self.assertRaises(ValueError):
+            build_report([report_ticket(1, "extreme", "open")])
+
 
 if __name__ == "__main__":
     unittest.main()
