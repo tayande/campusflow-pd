@@ -10,6 +10,10 @@ def build_report(tickets):
     by_priority = {priority: 0 for priority in PRIORITIES}
 
     for ticket in tickets:
+        if ticket["status"] not in by_status:
+            raise ValueError(f"Ticket {ticket['id']} has an unknown status: {ticket['status']!r}")
+        if ticket["priority"] not in by_priority:
+            raise ValueError(f"Ticket {ticket['id']} has an unknown priority: {ticket['priority']!r}")
         by_status[ticket["status"]] += 1
         by_priority[ticket["priority"]] += 1
 

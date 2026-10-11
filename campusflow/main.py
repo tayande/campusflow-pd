@@ -21,6 +21,14 @@ from campusflow.tickets import (
     format_ticket,
     get_ticket,
 )
+from campusflow.reports import build_report
+from campusflow.workflow import (
+    assign_ticket,
+    change_status,
+    get_work_queue,
+    reopen_ticket,
+)
+from campusflow.tickets import STATUSES
 
 
 def ask_until_valid(ask, say, prompt, cleaner):
@@ -72,11 +80,66 @@ def view_action(tickets, ask, say):
     return False
 
 
-# Menu key -> (label, action). Engineer B adds her options here (keys "4" to "8").
+def assign_action(tickets, ask, say):
+    """Menu option 4: assign a ticket to a staff member."""
+    ticket_id = ask("Ticket ID: ")
+    staff_name = ask("Assign to: ")
+    ticket = assign_ticket(tickets, ticket_id, staff_name)
+    say(f"{ticket['id']} is now assigned to {ticket['assigned_to']}.")
+    return True
+
+
+def status_action(tickets, ask, say):
+    """Menu option 5: move a ticket to its next status."""
+    ticket_id = ask("Ticket ID: ")
+    new_status = ask(f"New status ({', '.join(STATUSES)}): ")
+    ticket = change_status(tickets, ticket_id, new_status)
+    say(f"{ticket['id']} is now {ticket['status']}.")
+    return True
+
+
+def reopen_action(tickets, ask, say):
+    """Menu option 6: reopen a resolved ticket."""
+    ticket = reopen_ticket(tickets, ask("Ticket ID: "))
+    say(f"{ticket['id']} is open again.")
+    return True
+
+
+def queue_action(tickets, ask, say):
+    """Menu option 7: show the open tickets, most urgent first."""
+    queue = get_work_queue(tickets)
+    if not queue:
+        say("The work queue is empty.")
+        return False
+    say("Work queue (most urgent first):")
+    for number, ticket in enumerate(queue, start=1):
+        say(f"{number}. {format_ticket(ticket)}")
+    return False
+
+
+def report_action(tickets, ask, say):
+    """Menu option 8: show how many tickets there are by status and priority."""
+    report = build_report(tickets)
+    say(f"Total tickets: {report['total']}")
+    say("By status:")
+    for status, count in report["by_status"].items():
+        say(f"  {status}: {count}")
+    say("By priority:")
+    for priority, count in report["by_priority"].items():
+        say(f"  {priority}: {count}")
+    return False
+
+
+# Menu key -> (label, action). Add a new option by adding one line here.
 ACTIONS = {
     "1": ("Create a ticket", create_action),
     "2": ("List all tickets", list_action),
     "3": ("View one ticket", view_action),
+    "4": ("Assign a ticket", assign_action),
+    "5": ("Change a ticket's status", status_action),
+    "6": ("Reopen a resolved ticket", reopen_action),
+    "7": ("Show the work queue", queue_action),
+    "8": ("Show the report", report_action),
 }
 EXIT_KEY = "0"
 
