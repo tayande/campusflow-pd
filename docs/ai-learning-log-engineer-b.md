@@ -1,375 +1,133 @@
 # AI Learning Log: Engineer B
 
 **Fellow:** Peace Onma Oigoga (GitHub: onma77)
+**AI assistant used:** Claude. I did not use a separate chatbot for this project. ✎ (If that is not true for me, I correct this line and say which other tool I used.)
 
-**AI assistant used:** ChatGPT, as a tutor and reviewer.
-
-> **How to use this file:** This is an honest working draft based on the
-> CampusFlow handoff and our conversation. I have filled in details that
-> are supported by the conversation and kept unverified work clearly
-> marked. Do not claim you ran tests, changed code, reviewed/approved a
-> PR, or corrected an AI suggestion unless you personally did it.
-> Replace every **ACTION NEEDED** note with your real observation after
-> completing that step.
-
-------------------------------------------------------------------------
+---
 
 ## Part 1: Learning log entries
 
 ### Interaction #1: Reading the handoff and the shared decisions (D1 to D12)
+**Problem:** I joined a project where Engineer A and I write separate modules. I needed to understand the shared decisions (tickets as a list of dictionaries passed first, `ValueError` for errors, no `input()` or `print()` in the logic, the workflow table, the queue rule) before writing any code.
+**My initial understanding:** i thought my part was to build seperately with a different repository then adding my team member just as he did. but he explained that it's a team work were we get to share the work.
+**Prompt to AI:** Engineer A asked Claude to divide the work and write a handoff file for me: "so go ahead and divide the work as the project suggests, then give me or hand me the relevant part of the project for my other member, so that she wuold understand everything we are doing here..." ✎ He gave me the handoff file and I read it myself before writing any code.
+**Useful AI guidance:** The handoff file divided the work: I take assign/status workflow (issue #4), work queue and reports (issue #5) and the menu options for those features. The decisions say errors are raised as `ValueError` and caught only in the menu, and that logic functions never read or print.
+**My independent experiment/test:** ✎ I read `campusflow/tickets.py` to see how `get_ticket` finds a ticket and raises `ValueError`, because my functions call it. ☐ I tried `get_ticket` with a wrong ID and a lower-case ID in a Python shell.
+**Verification source or result:** `docs/design-decisions.md` sections 3 and 5. AI run: if `get_ticket` returns `None` instead of raising, 5 tests in the workflow and menu files fail, which shows my functions depend on it raising.
+**Decision:** Accepted. ✎ I followed the decisions as written.
+**Related file/commit:** `docs/design-decisions.md`, PR #7
+**What I can now explain without AI:** ✎ Logic functions raise `ValueError` instead of printing so the menu decides how to show the message and tests can check it with `assertRaises`. Passing the tickets list as the first parameter means every function works on the same data and can be tested without a file.
 
-**Problem:** I joined a project where Engineer A and I write separate
-modules. I needed to understand the shared decisions (tickets as a list
-of dictionaries passed first, `ValueError` for errors, no `input()` or
-`print()` in the logic, the workflow table, and the queue rule) before
-writing code.
-
-**My initial understanding:** Before reading the handoff carefully, I
-needed a clearer picture of the whole project, how the features fit
-together, and which parts I was responsible for as Engineer B.
-
-**Prompt to AI:** "Explain every step of this project and how to start."
-
-**Useful AI guidance:** The handoff divides the work between the two
-engineers. My assigned work is ticket assignment and status workflow
-(issue #4), the work queue and reports (issue #5), related tests, and
-adding menu options. The shared decisions say logic functions receive
-the ticket list first, raise `ValueError` for invalid actions, and do
-not use `input()` or `print()`. The menu handles user interaction and
-catches errors.
-
-**My independent experiment/test:** **ACTION NEEDED:** I should explain
-D3 and D4 in my own words, then inspect `campusflow/tickets.py` and
-identify how `get_ticket()` finds a ticket. Record what I actually
-checked here.
-
-**Verification source or result:** The project handoff, especially the
-shared decisions and Engineer B responsibilities. I have not recorded a
-personal test result for this interaction yet.
-
-**Decision:** I understand the proposed design and will follow it unless
-Engineer A and I agree to change a decision and update
-`docs/design-decisions.md`.
-
-**Related file/commit:** `docs/design-decisions.md`; project handoff.
-
-**What I can now explain without AI:** Logic functions raise errors
-instead of printing messages because they should perform the task
-without controlling the user interface. `main.py` can catch the error
-and display it. Keeping `input()` and `print()` out of logic functions
-also makes those functions easier to test.
-
-------------------------------------------------------------------------
+---
 
 ### Interaction #2: The status workflow (`assign_ticket`, `change_status`, `reopen_ticket`)
+**Problem:** Tickets must move open -> in_progress -> resolved, with rules: a ticket must be assigned before it starts, open cannot jump to resolved, and a resolved ticket can only be reopened.
+**My initial understanding:** my ai made it clear from when i prompted it.
+**Prompt to AI:** Engineer A asked on my behalf: "can you give me the codes for her own part?, then i will send to her and then walk us through on how to make the necessary additions to the repo?" For my first pull request he also asked: "while she is trying to create the first pull request, give me the discreptinog that she is going to write there first". ✎ I received the code, tests and instructions from him, committed them myself on `feat/4-status-workflow`, and opened PR #10.
+**Useful AI guidance:** The allowed moves are stored in one dictionary, `ALLOWED_MOVES`, instead of repeated `if` statements. `change_status` runs all its checks first and changes `ticket["status"]` as the last step, so a rejected change leaves the ticket untouched. `reopen_ticket` keeps the assignee. **This code was supplied by the AI, and I committed it myself.**
+**My independent experiment/test:** AI run on the merged code (all 104 tests pass normally):
+- Letting `open` move straight to `resolved` in `ALLOWED_MOVES` makes `test_open_cannot_jump_to_resolved` fail.
+- Removing the "must be assigned" check makes `test_unassigned_ticket_cannot_start` fail (in `test_workflow` and `test_main`).
+- Removing the "resolved cannot be assigned" check makes `test_resolved_ticket_cannot_be_assigned` fail.
+- Removing `.strip()` on the staff name makes `test_blank_name_is_rejected_and_nothing_changes` and 3 more fail.
+- Making `reopen_ticket` clear the assignee makes `test_reopens_a_resolved_ticket_and_keeps_the_assignee` fail.
 
-**Problem:** Tickets must move from `open` to `in_progress` to
-`resolved`, with rules: a ticket must be assigned before work starts, an
-open ticket cannot jump directly to resolved, and a resolved ticket must
-be reopened through the specific reopen function.
+☐ I made at least two of these changes myself, copied the failing test name from my own screen, undid the change, and saw all tests pass again.
+**Decision:** Accepted. ✎ I made no changes to the code.
+**Related file/commit:** `campusflow/workflow.py`, `tests/test_workflow.py`, PR #10, commit `5592bf4`
+**What I can now explain without AI:** ✎ `ALLOWED_MOVES` lists, for each status, the statuses it may move to, so one `in` check replaces a chain of `if` statements. The status is changed only after every check has passed, so a rejected move cannot leave a ticket half-changed. `reopen_ticket` is the only way back from resolved, and it keeps the assignee because the same person usually still owns the ticket.
 
-**My initial understanding:** I needed to learn how to check whether a
-requested status change is allowed and how to make sure an invalid
-operation does not change the ticket.
-
-**Prompt to AI:** No feature-specific prompt about implementing these
-functions is recorded in the conversation available for this draft.
-**ACTION NEEDED:** If I asked a separate prompt while coding, paste the
-exact prompt here. Do not present a suggested prompt as one I already
-used.
-
-**Useful AI guidance:** The handoff specifies the allowed status
-transitions and requires invalid operations to raise `ValueError`. The
-repository scaffold describes using an `ALLOWED_MOVES` dictionary to
-represent permitted transitions. All checks should happen before
-changing `ticket["status"]`, so a rejected operation leaves the ticket
-unchanged. Reopening a resolved ticket keeps the assignee.
-
-**My independent experiment/test:** **ACTION NEEDED:** Run
-`python3 -m unittest discover -s tests -v` yourself and record the
-actual result. If you deliberately break a check, record exactly what
-you changed and the exact test that failed. Do not claim this experiment
-happened until you have done it.
-
-**Verification source or result:** The expected rules are in the handoff
-and the workflow tests are in the repository. **ACTION NEEDED:** Add the
-actual number of tests and the real test output from your own run.
-
-**Decision:** I will follow the specified workflow rules. I will only
-say I accepted or changed a particular code suggestion after checking
-the code and recording what I actually did.
-
-**Related file/commit:** `campusflow/workflow.py`,
-`tests/test_workflow.py`, PR #10, commit `5592bf4` (as listed in the
-supplied scaffold; confirm these references still match the repository).
-
-**What I can now explain without AI:** `ALLOWED_MOVES` represents which
-destination statuses are permitted from a current status. The function
-checks the ticket's existence, the requested transition, and any
-assignment requirement before changing the status. Changing the status
-last prevents a rejected action from partially updating the ticket.
-
-------------------------------------------------------------------------
+---
 
 ### Interaction #3: The work queue and the summary report
+**Problem:** The queue must list only open tickets, most urgent first, with ties going to the lower ID. The report must show the total and the counts by status and priority, including groups with zero tickets.
+**Prompt to AI:** Engineer A asked on my behalf, using the same kit request as for the workflow, and later: "i have merged her feat 4 word, now, give me the description on her pull request for feat 5". ✎ I received the code, tests and instructions from him, committed them myself on `feat/5-queue-and-reports`, and opened PR #11.
+**Useful AI guidance:** `queue_order` returns a tuple `(position of priority in PRIORITIES, numeric part of the ID)` and `sorted(..., key=queue_order)` sorts by it. The numeric part is used instead of the ID text so that T1000 comes after T999. `build_report` starts every count at 0 so a missing group still shows 0, and raises `ValueError` for an unknown status or priority. `get_work_queue` returns a new sorted list and does not change the original. **This code was supplied by the AI, and I committed it myself.**
+**My independent experiment/test:** AI run on the merged code:
+- Comparing the ID text instead of the number makes `test_numeric_order_not_text_order` fail.
+- Dropping the ID from the sort key makes `test_ties_go_to_the_earlier_id` fail (plus the numeric-order test).
+- Including `in_progress` tickets in the queue makes `test_only_open_tickets_are_included` and `test_urgent_ticket_that_is_in_progress_is_not_in_the_queue` fail.
+- Starting the report's priority counts as an empty dictionary instead of zeros makes `test_empty_list_gives_all_zeros` and 3 more fail.
 
-**Problem:** The queue must list only open tickets, most urgent first,
-with ties going to the lower numeric ticket ID. The report must show the
-total and counts by status and priority, including categories with zero
-tickets.
+☐ I made at least one of these changes myself and saw the same failure.
+**Verification source or result:** Normal run: 104 tests, OK (28 workflow tests and 5 report tests). ☐ My own failing test name: `[paste from my screen]`
+**Decision:** Accepted. ✎ I made no changes to the code.
+**Related file/commit:** `campusflow/workflow.py` (`queue_order`, `get_work_queue`), `campusflow/reports.py`, `tests/test_reports.py`, PR #11, commit `b6eff45`
+**What I can now explain without AI:** ✎ The sorting key is a tuple, so Python compares the priority position first and the ID only when the priorities are equal. The ID is converted to a number because as text "T1000" sorts before "T999". The report starts every count at 0 so the screen always shows all statuses and priorities, including empty ones.
 
-**My initial understanding:** I needed to understand how to put tickets
-in priority order and how to count tickets by category. I also needed to
-account for ticket IDs such as `T010`, whose numeric part should be
-treated as 10.
-
-**Prompt to AI:** No feature-specific prompt about implementing the
-queue or report is recorded in the conversation available for this
-draft. **ACTION NEEDED:** Add the exact prompt if I used one while
-coding.
-
-**Useful AI guidance:** The handoff requires the queue to include open
-tickets only and to sort by priority, then numeric ID. The scaffold
-describes a sorting key that returns a tuple containing the priority's
-rank and the numeric part of the ID. Python sorts by the first tuple
-item and then uses the second item to break ties. The report should
-initialise every required status and priority count to zero, then count
-the tickets. Unknown statuses or priorities should be handled according
-to the implementation's validation rules.
-
-**My independent experiment/test:** **ACTION NEEDED:** Build or inspect
-a small list of tickets with mixed priorities and IDs, write down the
-expected order before running the function, and compare it with the
-actual output. Run the report on both an empty list and a mixed list.
-Record only what I really tested.
-
-**Verification source or result:** The queue and report requirements in
-the handoff, plus `tests/test_workflow.py` and `tests/test_reports.py`
-in the repository. **ACTION NEEDED:** Record the actual output and any
-mismatch from your own run.
-
-**Decision:** I will use the priority order and numeric-ID tie-breaker
-specified by the project. I will keep all status and priority keys in
-the report, even when their counts are zero.
-
-**Related file/commit:** `campusflow/workflow.py` (`queue_order`,
-`get_work_queue`), `campusflow/reports.py`, `tests/test_reports.py`, PR
-#11 (as listed in the supplied scaffold; confirm these references still
-match the repository).
-
-**What I can now explain without AI:** A tuple sorting key lets Python
-compare priority rank first and numeric ticket ID second. Starting each
-report count at zero ensures the output includes every required
-category, even if no ticket belongs to that category. Filtering the
-queue into a new list also avoids changing the original tickets list
-just to display the queue.
-
-------------------------------------------------------------------------
+---
 
 ### Interaction #4: Menu options for assign, status, reopen, queue and report
+**Problem:** Connect my logic functions to the menu without putting `input()` and `print()` inside the logic, and without breaking Engineer A's menu loop.
+**My initial understanding:** i had no initial understanding.
+**Prompt to AI:** Engineer A asked on my behalf: "some of these files have the same titles, or names, how am i supposed to know which is which. i thought you were going to give me each code for each branch..." The AI then repackaged my code into one zip per branch with a walkthrough. ✎ I received the menu-options kit, committed it myself on `feat/4-menu-options`, and opened PR #14.
+**Useful AI guidance:** Each menu option is a small function that takes the tickets, plus the `ask` and `say` functions as parameters (so tests can pass fake ones). The options are registered in a dictionary `ACTIONS` keyed by the menu number. A `ValueError` raised by the logic is caught in the menu loop and shown as `Error: ...`. **This code was supplied by the AI, and I committed it myself.**
+**My independent experiment/test:** ☐ I ran `python3 -m campusflow.main`, assigned a ticket, moved it to in progress, resolved it, reopened it, viewed the queue and the report, and typed a wrong ID once. AI run: removing the "resolved cannot be assigned" check also fails `test_assign_resolved_ticket_is_rejected` in `test_main`, so the menu is tested as well as the logic.
+**Verification source or result:** Normal run: 104 tests, OK, including 31 menu tests. ☐ What I saw on the screen for the wrong ID: `[paste]`
+**Decision:** Accepted. ✎ I made no changes to the code.
+**Related file/commit:** `campusflow/main.py` (assign, status, reopen, queue and report actions), PR #14, commit `c23ad1f`
+**What I can now explain without AI:** ✎ `ACTIONS` is a dictionary from the menu number to a function, so adding an option means adding one entry. `ask` and `say` are parameters so the tests can pass fake ones instead of typing. A `ValueError` from my functions is caught in the menu loop, so a mistake shows an error message and the program keeps running.
 
-**Problem:** My logic functions need to be connected to the menu without
-putting `input()` and `print()` inside the logic functions or breaking
-Engineer A's menu loop.
-
-**My initial understanding:** I needed to understand how the menu can
-collect user input, call my functions, and show results while keeping
-the business logic separate from user interaction.
-
-**Prompt to AI:** The prompt recorded in this conversation was:
-"https://github.com/tayande/campusflow-pd.git --- check this out for us
-to work and build together." I also asked for an explanation of every
-project step and how to start. A specific prompt about implementing the
-menu is not recorded here. **ACTION NEEDED:** Add the exact prompt if I
-used one during menu integration.
-
-**Useful AI guidance:** The scaffold describes keeping each menu action
-separate and passing the ticket list plus `ask` and `say` functions into
-the action. The `ACTIONS` dictionary maps menu choices to their actions.
-The menu loop catches `ValueError` and displays an understandable error
-message. This keeps input/output in the menu layer rather than in the
-logic functions.
-
-**My independent experiment/test:** **ACTION NEEDED:** Run
-`python3 -m campusflow.main` yourself and try the assign, status,
-reopen, queue, and report options, including an unknown ticket ID.
-Record the actual behaviour you observe.
-
-**Verification source or result:** `campusflow/main.py`, the relevant
-pull request, and the output from my own manual run. **ACTION NEEDED:**
-Record what appeared on screen and whether the program saved successful
-changes.
-
-**Decision:** I will follow the project's separation between logic and
-menu interaction. I will not claim the menu was manually tested until I
-have run it myself.
-
-**Related file/commit:** `campusflow/main.py` (assign, status, reopen,
-queue and report actions), PR #14 (as listed in the supplied scaffold;
-confirm these references still match the repository).
-
-**What I can now explain without AI:** The `ACTIONS` dictionary connects
-menu choices to the functions that handle them. Passing `ask` and `say`
-as parameters makes menu actions easier to test with substitute
-functions. Catching `ValueError` in the menu lets the program display an
-error without placing printing inside the logic functions.
-
-------------------------------------------------------------------------
+---
 
 ### Interaction #5: A suggestion I checked and corrected (REQUIRED ENTRY)
-
-> This entry must describe a real check. The conversation available for
-> this draft does not establish that I have already found and corrected
-> a specific AI suggestion. I must complete the experiment before
-> submitting this as a completed entry.
-
-**Problem:** **ACTION NEEDED:** Choose a real AI suggestion or piece of
-suggested code that I was unsure about. State exactly what it was.
-
-**My initial understanding:** **ACTION NEEDED:** Explain what I thought
-was correct or potentially wrong and why I wanted to check it.
-
-**Prompt to AI:** **ACTION NEEDED:** Paste the actual prompt and, if
-possible, the relevant AI suggestion. Do not invent a past prompt.
-
-**Useful AI guidance:** **ACTION NEEDED:** Summarise the actual
-suggestion that I checked.
-
-**My independent experiment/test:** Read the relevant code line by line.
-Identify a concrete issue, weakness, or unclear part; make a correction
-myself; then run the relevant test command. A possible way to
-investigate is to check whether a rejected status transition leaves the
-ticket unchanged, but I must only use this example if I actually perform
-that test.
-
-**Verification source or result:** **ACTION NEEDED:** Record the
-specific problem found and the real test output that demonstrated it.
-
-**Decision:** **ACTION NEEDED:** State what I corrected or rejected and
-why, based on the experiment.
-
-**Related file/commit:** **ACTION NEEDED:** Add the actual file and
-commit SHA for my correction.
-
-**What I can now explain without AI:** **ACTION NEEDED:** Explain the
-lesson I learned from independently checking the suggestion rather than
-trusting it automatically.
-
-------------------------------------------------------------------------
+> The marking asks for at least one entry where I checked an AI suggestion and corrected or rejected it. I cannot copy this one from anyone. If it happened, I write it. If not, I do a real check now: read the AI's code line by line, find one thing that is wrong, unclear or weaker than it could be, change it, and re-run the tests.
+>
+> Known candidates from the reviews (not written by me, so I only use one if I really checked it myself): the status prompt lists "open" although the menu option cannot set it; non-string input to the logic functions raises `AttributeError` instead of `ValueError`; there is a duplicate `campusflow.tickets` import in `main.py`.
+---
 
 ### Interaction #6: Reviewing my partner's pull request
-
-**Problem:** I need to review Engineer A's pull request carefully, leave
-specific comments, and avoid approving it without checking the code.
-
-**My initial understanding:** I needed guidance on how to review the
-shared foundation and how to tell whether the code and tests meet the
-agreed requirements.
-
-**Prompt to AI:** "Check this out for us to work and build together,"
-followed by the repository URL. I also asked for an explanation of the
-project and its starting steps.
-
-**Useful AI guidance:** The review should check the changed files,
-compare the implementation with the requirements, and run the tests
-locally. A useful review identifies specific issues or asks questions
-about particular lines; a vague comment such as "Looks good" is not
-sufficient. The team process requires at least two substantive review
-comments before approval.
-
-**My independent experiment/test:** **ACTION NEEDED:** Open PR #8, read
-its changed files, and run the tests locally. Record the actual command
-and output. If I have not submitted review comments, I must say that the
-review is not yet complete.
-
-**Verification source or result:** [PR #8 --- Shared
-Foundation](https://github.com/tayande/campusflow-pd/pull/8) and my own
-review of its changed files. **ACTION NEEDED:** Record at least two real
-comments I posted, or state that I have not posted them yet.
-
-**Decision:** No approval decision is recorded in this conversation.
-**ACTION NEEDED:** After reviewing and testing the PR, record whether I
-approved it or requested changes and explain why.
-
-**Related file/commit:** [PR #8 --- Shared
-Foundation](https://github.com/tayande/campusflow-pd/pull/8).
-
-**What I can now explain without AI:** A pull request review checks
-whether a change meets the requirements, behaves correctly, is
-understandable, and has adequate tests. I should refer to specific code
-or test behaviour in my comments and verify claims by inspecting the
-code or running tests.
-
-------------------------------------------------------------------------
+**Problem:** Review Engineer A's pull requests properly, with specific comments and without approving blindly.
+**Prompt to AI:** Engineer A asked the AI for a review message for me to post on his pull request ("she is going to review the pull request right?, i want you to give me a review message for her"). The AI declined to write the review itself and gave me a checklist instead, because a review only counts if I read the code. ✎ I use the checklist; the comments I post are my own.
+**My independent experiment/test:** ☐ I checked out the PR branch (`git switch --detach origin/<branch>`) and ran the tests myself.
+**Verification source or result:** https://github.com/tayande/campusflow-pd/pull/9`
+**Related file/commit:** https://github.com/tayande/campusflow-pd/pull/9
+**What I can now explain without AI:** i look how explicable and user friendly the file sent is
+---
 
 ## Part 2: Clarification questions (running list)
 
-The first two prompts below are based on questions I actually asked in
-this conversation. The remaining rows are suggested questions to ask
-while doing the work; after asking them, replace the wording if
-necessary and record the real answer and verification.
+| # | Question I asked | AI's answer in short 
+|---|---|---|---|
 
-  -------------------------------------------------------------------------------------------------------
-  \#                Question I asked                                AI's answer in      Did I verify it?
-                                                                    short               How?
-  ----------------- ----------------------------------------------- ------------------- -----------------
-  1                 "Explain every step of this project and how to  CampusFlow is a     I received an
-                    start."                                         command-line ticket explanation based
-                                                                    manager. The        on the handoff. I
-                                                                    handoff divides     still need to
-                                                                    responsibilities    verify the
-                                                                    between Engineer A  current
-                                                                    and Engineer B and  repository files
-                                                                    defines the         and run the
-                                                                    features, rules,    relevant commands
-                                                                    tests, and Git      myself.
-                                                                    workflow.           
+| 1 | What is CampusFlow, and what problem does it solve? | CampusFlow is a Python command-line helpdesk application designed to help campus staff manage technical support requests. For example, a student might report that the campus Wi-Fi is not working, a staff member might report a faulty laptop, or someone might need help installing software. Without a proper system, these requests could be forgotten or handled in the wrong order. CampusFlow solves this problem by allowing users to:
+Create support tickets.
+Calculate ticket priorities.
+Assign tickets to staff members.
+Track the progress of tickets.
+View unresolved tickets in priority order.
+Generate reports.
+Save tickets so they remain available after restarting the application. In simple terms: CampusFlow helps a support team record problems, decide which problems need attention first, and track them until they are resolved. 
 
-  2                 "https://github.com/tayande/campusflow-pd.git   The repository is   **ACTION
-                    --- check this out for us to work and build     the project to use. NEEDED:** Confirm
-                    together."                                      The proposed next   the current PR
-                                                                    step is to inspect  status, inspect
-                                                                    the                 the changed
-                                                                    shared-foundation   files, and run
-                                                                    PR, set up the      the tests
-                                                                    local copy, and     locally.
-                                                                    verify the tests    
-                                                                    before coding.      
 
-  3                 Suggested: "Can you explain `raise ValueError`  This should help me Ask this
-                    and `try/except` with a small example unrelated understand how      question,
-                    to CampusFlow?"                                 functions reject    complete a small
-                                                                    invalid operations  exercise, and
-                                                                    and how the menu    record my actual
-                                                                    handles those       result.
-                                                                    errors.             
+| 2 |What is a command-line application? |  A command-line application is a program that users interact with by entering commands or selecting options in a terminal. CampusFlow does not need a website or graphical interface. Users can manage tickets through a text-based menu.
+For example:
+===== CAMPUSFLOW =====
+1. Create Ticket
+2. View All Tickets
+3. Assign Ticket
+4. Update Ticket Status
+5. View Work Queue
+6. View Reports
+7. Exit
 
-  4                 Suggested: "How can I test that a rejected      This should help me Ask this
-                    status change leaves the ticket unchanged?"     design a test that  question, write
-                                                                    checks both the     or run the test,
-                                                                    exception and the   and record the
-                                                                    ticket's original   actual output.
-                                                                    state.              
+Choose an option:
+When a user selects an option, the program performs the corresponding action. Important: The guide specifically requires a command-line application, so building a website is not necessary for this sprint.
 
-  5                 Suggested: "Can you explain how `sorted()` uses This should clarify Ask this
-                    a tuple key to sort by priority and numeric     the queue's two     question, predict
-                    ticket ID?"                                     sorting criteria.   the order of a
-                                                                                        hand-built ticket
-                                                                                        list, and compare
-                                                                                        it with the
-                                                                                        program's output.
-  -------------------------------------------------------------------------------------------------------
 
-------------------------------------------------------------------------
+| 3 |What is a GitHub Issue, and why do we need it for CampusFlow? | A GitHub Issue is a task, problem, or improvement recorded in a GitHub repository. Instead of immediately writing code, the team uses Issues to organize the work that needs to be completed. For example, we could create an Issue titled:
+Issue #1: Implement Ticket Creation
+The description might say: Implement a function that creates a ticket using the required fields. Validate the title, category, urgency, and number of affected users. Generate a unique ticket ID and calculate the ticket priority.
+We could also include acceptance criteria:
+A valid ticket can be created.
+The ticket receives a unique ID.
+A blank title is rejected.
+Zero affected users are rejected.
+The ticket's priority is calculated correctly. Once the task is complete, the developer can link the Issue to the pull request that implements it. Why do we need Issues?
+They help us divide the project into manageable tasks, assign responsibility, and track progress.
+
+---
 
 ## Part 3: Use of AI statement
 
-I used ChatGPT as a tutor to help me understand the CampusFlow handoff,
-the division of responsibilities, the project structure, and the
-expected workflow for reviewing the repository and building my features.
-The conversation so far mainly covers explanation and planning; it does
-not establish that ChatGPT wrote my implementation or that I
-independently ran the project's tests. I will describe any code
-suggestions I use, changes I make myself, and test results accurately,
-and I will not claim that I verified or corrected something until I have
-actually done so.
+✎ Claude supplied most of the code for `workflow.py`, `reports.py`, the menu options and their tests, together with the step-by-step instructions. I did not use a separate chatbot for this project. I committed the code myself on my own branches and each PR says the code was supplied by the AI. 
