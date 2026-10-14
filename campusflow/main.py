@@ -19,7 +19,13 @@ from campusflow.history import (
     record_event,
 )
 from campusflow.knowledge_lab import run_quiz, session_path_for
-from campusflow.reports import build_report
+from campusflow.reports import (
+    build_metrics,
+    build_report,
+    format_sla_ticket,
+    get_sla_attention_queue,
+)
+from campusflow.sla import escalate_overdue
 from campusflow.storage import DEFAULT_PATH, load_tickets, save_tickets
 from campusflow.tickets import (
     CATEGORIES,
@@ -288,6 +294,59 @@ def report_action(ctx, ask, say):
     return False
 
 
+def sla_escalation_action(ctx, ask, say):
+    """Escalate overdue tickets and report the results."""
+    result = escalate_overdue(
+        ctx.tickets,
+        ctx.events,
+        ctx.now,
+        ctx.actor,
+    )
+
+    say(f"Newly escalated: {result['newly_escalated']}")
+    say(f"Already escalated in this cycle: {result['already_escalated']}")
+
+    # Ticket data changes when a new escalation is recorded.
+    return result["newly_escalated"] > 0
+
+
+def sla_queue_action(ctx, ask, say):
+    """Display unresolved tickets in SLA attention order."""
+    queue = get_sla_attention_queue(ctx.tickets, ctx.now)
+
+    if not queue:
+        say("No unresolved tickets.")
+        return False
+
+    say("SLA attention queue (overdue tickets first):")
+
+    for number, ticket in enumerate(queue, start=1):
+        say(f"{number}. {format_sla_ticket(ticket, ctx.now)}")
+
+    return False
+
+
+def metrics_action(ctx, ask, say):
+    """Display ticket and SLA metrics."""
+    metrics = build_metrics(ctx.tickets, ctx.now)
+
+    say(f"Total tickets: {metrics['total']}")
+    say(f"Open: {metrics['open']}")
+    say(f"In progress: {metrics['in_progress']}")
+    say(f"Resolved: {metrics['resolved']}")
+    say(f"Overdue unresolved: {metrics['overdue_unresolved']}")
+    say(
+        "Escalated in current cycle: "
+        f"{metrics['escalated_current_cycle']}"
+    )
+
+    say("By priority:")
+    for priority, count in metrics["by_priority"].items():
+        say(f"  {priority}: {count}")
+
+    return False
+
+
 def knowledge_lab_action(ctx, ask, say):
     """Run the Engineering Knowledge Lab without changing tickets."""
     participant = ask_until_valid(
@@ -341,8 +400,11 @@ ACTIONS = {
     "6": ("Reopen a resolved ticket", reopen_action),
     "7": ("Show the work queue", queue_action),
     "8": ("Show the report", report_action),
+    "9": ("Escalate overdue tickets", sla_escalation_action),
     "10": ("Engineering Knowledge Lab", knowledge_lab_action),
+    "11": ("Show the SLA attention queue", sla_queue_action),
     "12": ("Show a ticket's history", history_action),
+    "13": ("Show ticket and SLA metrics", metrics_action),
 }
 
 EXIT_KEY = "0"
