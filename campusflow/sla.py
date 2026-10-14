@@ -1,3 +1,4 @@
+
 """Service-level deadlines (SLA) for CampusFlow.
 
 A ticket has a deadline, `due_at`, that depends on its priority. The deadline
@@ -20,7 +21,7 @@ SLA_MINUTES = {
 
 
 def calculate_due_at(priority, cycle_start):
-    """Return the deadline (an aware datetime) for a ticket of this priority."""
+    """Return the deadline (an aware datetime) for this ticket's priority."""
     if priority not in SLA_MINUTES:
         raise ValueError(f"Unknown priority: {priority!r}")
     if not is_aware(cycle_start):
@@ -29,7 +30,7 @@ def calculate_due_at(priority, cycle_start):
 
 
 def is_overdue(ticket, now):
-    """Return True if the ticket is unresolved and `now` is strictly after its deadline."""
+    """Return True if the ticket is unresolved and now is strictly after its deadline."""
     if not is_aware(now):
         raise ValueError("Now must be a datetime with a timezone")
     if ticket["status"] == "resolved":
@@ -38,15 +39,17 @@ def is_overdue(ticket, now):
 
 
 def escalate_overdue(tickets, events, now, actor):
-    """Record one ESCALATE event for each overdue ticket not yet escalated this cycle.
+    """Record one ESCALATE event per overdue ticket in its current cycle.
 
     A ticket counts as escalated in its current cycle when
-    escalated_cycle == escalation_cycle. Reopening adds 1 to escalation_cycle,
-    so a reopened ticket can be escalated again, and running this twice in a row
-    adds nothing the second time. Escalation does not assign, change the
-    priority or change the status.
+    escalated_cycle == escalation_cycle. Reopening increments escalation_cycle,
+    allowing the ticket to be escalated again in the new cycle.
 
-    Returns {"newly_escalated": n, "already_escalated": m}.
+    Repeated checks in the same cycle do not create duplicate events.
+    Escalation does not change the ticket's assignment, priority, or status.
+
+    Returns:
+        A dictionary containing newly_escalated and already_escalated counts.
     """
     if not is_aware(now):
         raise ValueError("Now must be a datetime with a timezone")
@@ -55,20 +58,34 @@ def escalate_overdue(tickets, events, now, actor):
 
     newly = 0
     already = 0
+
     for ticket in tickets:
         if not is_overdue(ticket, now):
             continue
+
         cycle = ticket.get("escalation_cycle", 0)
+
         if ticket.get("escalated_cycle") == cycle:
             already += 1
             continue
-        # The event is recorded first; the marker is set only once it succeeded.
+
+        # Record the event before updating the ticket's escalation marker.
         record_event(
-            events, ticket["id"], "ESCALATE", actor, now,
-            ticket["status"], ticket["status"],
+            events,
+            ticket["id"],
+            "ESCALATE",
+            actor,
+            now,
+            ticket["status"],
+            ticket["status"],
             {"cycle": cycle, "due_at": ticket["due_at"]},
         )
+
         ticket["escalated_cycle"] = cycle
         ticket["updated_at"] = to_iso(now)
         newly += 1
-    return {"newly_escalated": newly, "already_escalated": already}
+
+    return {
+        "newly_escalated": newly,
+        "already_escalated": already,
+    }

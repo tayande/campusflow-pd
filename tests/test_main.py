@@ -423,6 +423,12 @@ class TestDuplicateWarning(MenuTestCase):
         self.use_menu(self.FIRST + ["1", "wi-fi down", "Network", "low", "1"])
         self.assertEqual(len(load_tickets(self.path)), 1)
 
+class TestKnowledgeLabMenuOption(MenuTestCase):
+    def test_menu_shows_knowledge_lab_at_option_10(self):
+        self.use_menu(["0"])
 
+        self.assertIn("10. Engineering Knowledge Lab", self.output)
+        self.assertNotIn("13. Engineering Knowledge Lab", self.output)
+        
 if __name__ == "__main__":
     unittest.main()
