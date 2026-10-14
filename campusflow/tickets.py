@@ -1,5 +1,7 @@
 """Ticket rules and lookup for CampusFlow."""
 
+from campusflow.sla import calculate_due_at, to_iso, utc_now
+
 CATEGORIES = ["Network", "Hardware", "Software", "Other"]
 URGENCIES = ["low", "medium", "high"]
 STATUSES = ["open", "in_progress", "resolved"]
@@ -77,13 +79,21 @@ def generate_id(tickets):
     return f"T{highest + 1:03d}"
 
 
-def create_ticket(tickets, title, category, urgency, affected_users):
-    """Validate the inputs, add a new ticket to the list and return it."""
+def create_ticket(tickets, title, category, urgency, affected_users, now=None):
+    """Validate the inputs, add a new ticket to the list and return it.
+
+    `now` is the creation time (an aware datetime). The menu passes it in;
+    if it is left out, the real clock is read once here.
+    """
+    if now is None:
+        now = utc_now()
     # Every check happens first, so a bad input never changes the list.
     title = clean_title(title)
     category = clean_category(category)
     urgency = clean_urgency(urgency)
     affected_users = clean_affected_users(affected_users)
+    priority = calculate_priority(urgency, affected_users)
+    created = to_iso(now)  # also rejects a time with no timezone
 
     ticket = {
         "id": generate_id(tickets),
@@ -91,9 +101,14 @@ def create_ticket(tickets, title, category, urgency, affected_users):
         "category": category,
         "urgency": urgency,
         "affected_users": affected_users,
-        "priority": calculate_priority(urgency, affected_users),
+        "priority": priority,
         "status": "open",
         "assigned_to": None,
+        "created_at": created,
+        "updated_at": created,
+        "due_at": to_iso(calculate_due_at(priority, now)),
+        "escalation_cycle": 0,
+        "escalated_cycle": None,
     }
     tickets.append(ticket)
     return ticket
