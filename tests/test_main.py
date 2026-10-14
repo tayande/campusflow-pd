@@ -380,5 +380,49 @@ class TestHistoryEvents(MenuTestCase):
         self.assertEqual([line[2] for line in lines], ["CREATE", "CREATE", "ASSIGN"])
 
 
+class TestDuplicateWarning(MenuTestCase):
+    FIRST = ["1", " Wi-Fi   Down ", "Network", "high", "15"]
+
+    def test_matching_title_warns_and_confirming_creates_the_ticket(self):
+        self.use_menu(self.FIRST + ["1", "wi-fi down", "Network", "low", "1", "yes", "0"])
+        self.assertIn("Warning: similar unresolved ticket(s) already exist: T001.", self.output)
+        self.assertEqual([t["id"] for t in load_tickets(self.path)], ["T001", "T002"])
+
+    def test_declining_creates_neither_a_ticket_nor_an_event(self):
+        self.use_menu(self.FIRST + ["1", "wi-fi down", "Network", "low", "1", "no",
+                                    "12", "T001", "0"])
+        self.assertIn("Cancelled. No ticket was created.", self.output)
+        self.assertEqual([t["id"] for t in load_tickets(self.path)], ["T001"])
+        self.assertEqual([line[2] for line in event_lines(self.output)], ["CREATE"])
+
+    def test_confirming_records_exactly_one_more_create_event(self):
+        self.use_menu(self.FIRST + ["1", "wi-fi down", "Network", "low", "1", "y",
+                                    "12", "T001", "12", "T002", "0"])
+        self.assertEqual([line[2] for line in event_lines(self.output)], ["CREATE", "CREATE"])
+
+    def test_unclear_answer_is_asked_again(self):
+        self.use_menu(self.FIRST + ["1", "wi-fi down", "Network", "low", "1",
+                                    "maybe", "", "no", "0"])
+        self.assertEqual(self.text().count("Please answer yes or no."), 2)
+        self.assertEqual(len(load_tickets(self.path)), 1)
+
+    def test_different_category_gives_no_warning(self):
+        self.use_menu(self.FIRST + ["1", "wi-fi down", "Hardware", "low", "1", "0"])
+        self.assertNotIn("Warning", self.text())
+        self.assertEqual(len(load_tickets(self.path)), 2)
+
+    def test_resolved_ticket_gives_no_warning(self):
+        tickets = make_tickets()
+        tickets[0]["status"] = "resolved"
+        save_tickets(tickets, self.path)
+        self.use_menu(["1", "Campus Wi-Fi is down", "Network", "low", "1", "0"])
+        self.assertNotIn("Warning", self.text())
+        self.assertEqual(len(load_tickets(self.path)), 3)
+
+    def test_running_out_of_input_at_the_warning_creates_nothing(self):
+        self.use_menu(self.FIRST + ["1", "wi-fi down", "Network", "low", "1"])
+        self.assertEqual(len(load_tickets(self.path)), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
