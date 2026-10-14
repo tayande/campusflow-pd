@@ -15,7 +15,11 @@
 - **Status workflow:** open, in progress, resolved, with rules about what may follow what, and a way to reopen a resolved ticket.
 - **Work queue** of open tickets, most urgent first.
 - **Report** with the total and the counts by status and priority.
-- **Saved to a file**, so tickets survive a restart.
+- **SLA attention queue** of unresolved tickets, overdue first, with the deadline on each line.
+- **Escalation** of overdue tickets, recorded once per SLA cycle and never changing a ticket's status, priority or assignee.
+- **Metrics** with the counts by status and priority, the overdue unresolved total and the escalations in the current cycle.
+- **History** of every change to a ticket, and an **Engineering Knowledge Lab** quiz.
+- **Saved to a file**, so tickets and their history survive a restart.
 
 ## Requirements
 Python 3 (written and tested with Python 3.13). There is nothing to install: the program uses only the Python standard library.
@@ -44,6 +48,11 @@ If `data/tickets.json` is damaged (for example, edited by hand into invalid JSON
 6. Reopen a resolved ticket
 7. Show the work queue
 8. Show the report
+9. Escalate overdue tickets
+10. Show the SLA attention queue
+11. Show ticket and SLA metrics
+12. Show a ticket's history
+13. Engineering Knowledge Lab
 0. Exit
 ```
 Wrong answers never crash the program: it shows an `Error: ...` message and carries on.
@@ -87,6 +96,11 @@ The work queue shows open tickets in the order critical, high, medium, low. Tick
 
 A resolved ticket cannot be assigned or changed until it is reopened.
 
+## SLA deadlines and escalation
+Each ticket gets a deadline, `due_at`, worked out from its priority and the start of its current cycle (the creation time, or the reopen time after a reopen): critical 60 minutes, high 4 hours, medium 1 day, low 2 days. A ticket is overdue once the current time is strictly past its deadline; a resolved ticket is never overdue.
+
+The SLA attention queue lists the unresolved tickets with overdue ones first, then by earliest deadline, then by ticket number. "Escalate overdue tickets" records one `ESCALATE` event per overdue ticket per cycle, so running it twice in the same cycle adds nothing the second time; a reopened ticket may be escalated again in its new cycle. Escalation never changes a ticket's status, priority or assignee.
+
 ## Project layout
 ```
 campusflow/
@@ -94,7 +108,9 @@ campusflow/
   tickets.py    ticket rules: constants, validation, priority, IDs, create
   storage.py    saving and loading data/tickets.json
   workflow.py   assign, change status, reopen, work queue
-  reports.py    the summary report
+  reports.py    the summary report, the SLA attention queue and metrics
+  sla.py        deadlines: how due_at is worked out and what "overdue" means
+  history.py    the append-only event history
 tests/          unit tests for every module (unittest)
 docs/           design decisions
 ```

@@ -2,10 +2,10 @@ import json
 import os
 import tempfile
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from campusflow.main import run
-from campusflow.storage import load_tickets, save_tickets
+from campusflow.storage import load_data, save_data
 
 
 FIXED_TIME = datetime(2026, 10, 14, 10, 0, tzinfo=timezone.utc)
@@ -16,15 +16,32 @@ def fixed_clock():
     return FIXED_TIME
 
 
+def make_ticket(ticket_id, title, category, urgency, affected_users,
+                priority, status, assigned_to=None,
+                escalation_cycle=0, escalated_cycle=None,
+                due_in_minutes=120):
+    """Build a valid version 2 ticket by hand.
+
+    due_in_minutes is measured from FIXED_TIME, so a negative value is already overdue.
+    """
+    stamp = FIXED_TIME.isoformat()
+    return {
+        "id": ticket_id, "title": title, "category": category,
+        "urgency": urgency, "affected_users": affected_users,
+        "priority": priority, "status": status, "assigned_to": assigned_to,
+        "created_at": stamp, "updated_at": stamp,
+        "due_at": (FIXED_TIME + timedelta(minutes=due_in_minutes)).isoformat(),
+        "escalation_cycle": escalation_cycle, "escalated_cycle": escalated_cycle,
+    }
+
+
 def make_tickets():
     """Return a fresh list of two tickets, so tests never share data."""
     return [
-        {"id": "T001", "title": "Campus Wi-Fi is down", "category": "Network",
-         "urgency": "high", "affected_users": 15, "priority": "critical",
-         "status": "open", "assigned_to": None},
-        {"id": "T002", "title": "Laptop will not start", "category": "Hardware",
-         "urgency": "low", "affected_users": 1, "priority": "low",
-         "status": "in_progress", "assigned_to": "Sam"},
+        make_ticket("T001", "Campus Wi-Fi is down", "Network", "high", 15,
+                    "critical", "open"),
+        make_ticket("T002", "Laptop will not start", "Hardware", "low", 1,
+                    "low", "in_progress", "Sam"),
     ]
 
 
@@ -36,16 +53,20 @@ class MenuTestCase(unittest.TestCase):
         self.addCleanup(self.folder.cleanup)
         self.path = os.path.join(self.folder.name, "tickets.json")
         self.output = []
+        self.prompts = []
 
     def use_menu(self, answers, actor="Tester", clock=fixed_clock):
         """Run the menu with these answers; return its exit code.
 
         The menu first asks for the operator's name, so it is typed here
         automatically. Pass actor=None to type it yourself in `answers`.
+        The prompts are recorded in `self.prompts`, since only a real
+        input() would show them in the output.
         """
         remaining = list(answers) if actor is None else [actor] + list(answers)
 
         def fake_ask(prompt):
+            self.prompts.append(prompt)
             if not remaining:
                 raise EOFError  # the user ran out of input
             return remaining.pop(0)
@@ -54,6 +75,14 @@ class MenuTestCase(unittest.TestCase):
 
     def text(self):
         return "\n".join(self.output)
+
+    def saved_tickets(self):
+        """The tickets as they are in the file now."""
+        return load_data(self.path)[0]
+
+    def saved_events(self):
+        """The event history as it is in the file now."""
+        return load_data(self.path)[1]
 
 
 class TestStartAndExit(MenuTestCase):
@@ -94,7 +123,7 @@ class TestDamagedFile(MenuTestCase):
 class TestCreate(MenuTestCase):
     def test_create_saves_the_ticket_to_the_file(self):
         self.use_menu(["1", "Printer jam", "hardware", "MEDIUM", "4", "0"])
-        saved = load_tickets(self.path)
+        saved = load_data(self.path)[0]
         self.assertEqual(len(saved), 1)
         self.assertEqual(saved[0]["id"], "T001")
         self.assertEqual(saved[0]["category"], "Hardware")
@@ -113,20 +142,20 @@ class TestCreate(MenuTestCase):
         ]
         self.use_menu(answers)
         self.assertEqual(self.text().count("Error:"), 7)
-        saved = load_tickets(self.path)
+        saved = load_data(self.path)[0]
         self.assertEqual(saved[0]["affected_users"], 3)
         self.assertEqual(saved[0]["priority"], "medium")
 
     def test_new_ticket_continues_after_existing_ones(self):
-        save_tickets(make_tickets(), self.path)
+        save_data(self.path, make_tickets(), [])
         self.use_menu(["1", "Projector", "Other", "low", "1", "0"])
-        ids = [t["id"] for t in load_tickets(self.path)]
+        ids = [t["id"] for t in load_data(self.path)[0]]
         self.assertEqual(ids, ["T001", "T002", "T003"])
 
     def test_two_tickets_in_one_session_get_different_ids(self):
         self.use_menu(["1", "A", "Other", "low", "1",
                        "1", "B", "Other", "low", "1", "0"])
-        ids = [t["id"] for t in load_tickets(self.path)]
+        ids = [t["id"] for t in load_data(self.path)[0]]
         self.assertEqual(ids, ["T001", "T002"])
 
     def test_leaving_in_the_middle_of_create_saves_nothing(self):
@@ -140,7 +169,7 @@ class TestListAndView(MenuTestCase):
         self.assertIn("No tickets yet.", self.output)
 
     def test_list_shows_every_saved_ticket(self):
-        save_tickets(make_tickets(), self.path)
+        save_data(self.path, make_tickets(), [])
         self.use_menu(["2", "0"])
         self.assertIn("T001 | Campus Wi-Fi is down | Network | critical | open | unassigned",
                       self.output)
@@ -148,20 +177,20 @@ class TestListAndView(MenuTestCase):
                       self.output)
 
     def test_view_shows_all_details(self):
-        save_tickets(make_tickets(), self.path)
+        save_data(self.path, make_tickets(), [])
         self.use_menu(["3", " t002 ", "0"])
         self.assertIn("Title:          Laptop will not start", self.output)
         self.assertIn("Assigned to:    Sam", self.output)
         self.assertIn("Status:         in_progress", self.output)
 
     def test_view_unknown_ticket_shows_error_and_keeps_going(self):
-        save_tickets(make_tickets(), self.path)
+        save_data(self.path, make_tickets(), [])
         self.use_menu(["3", "T999", "0"])
         self.assertIn("Error: Ticket T999 not found", self.output)
         self.assertIn("Goodbye.", self.output)
 
     def test_list_does_not_change_the_file(self):
-        save_tickets(make_tickets(), self.path)
+        save_data(self.path, make_tickets(), [])
         with open(self.path, encoding="utf-8") as file:
             before = file.read()
         self.use_menu(["2", "3", "T001", "0"])
@@ -171,29 +200,25 @@ class TestListAndView(MenuTestCase):
 
 def make_workflow_tickets():
     """Tickets in every state, for the workflow menu options."""
-    def ticket(number, priority, status, assigned_to=None):
-        return {"id": f"T{number:03d}", "title": f"Problem {number}",
-                "category": "Other", "urgency": "low", "affected_users": 1,
-                "priority": priority, "status": status, "assigned_to": assigned_to}
     return [
-        ticket(1, "low", "open"),
-        ticket(2, "critical", "open", "Sam"),
-        ticket(3, "high", "in_progress", "Ada"),
-        ticket(4, "medium", "resolved", "Kim"),
+        make_ticket("T001", "Problem 1", "Other", "low", 1, "low", "open"),
+        make_ticket("T002", "Problem 2", "Other", "low", 1, "critical", "open", "Sam"),
+        make_ticket("T003", "Problem 3", "Other", "low", 1, "high", "in_progress", "Ada"),
+        make_ticket("T004", "Problem 4", "Other", "low", 1, "medium", "resolved", "Kim"),
     ]
 
 
 class WorkflowMenuTestCase(MenuTestCase):
     def setUp(self):
         super().setUp()
-        save_tickets(make_workflow_tickets(), self.path)
+        save_data(self.path, make_workflow_tickets(), [])
 
     def file_text(self):
         with open(self.path, encoding="utf-8") as file:
             return file.read()
 
     def saved(self, ticket_id):
-        for ticket in load_tickets(self.path):
+        for ticket in load_data(self.path)[0]:
             if ticket["id"] == ticket_id:
                 return ticket
 
@@ -280,7 +305,7 @@ class TestQueueAndReportOptions(WorkflowMenuTestCase):
         self.assertTrue(lines[1].startswith("2. T001"))
 
     def test_empty_queue_message(self):
-        save_tickets([], self.path)
+        save_data(self.path, [], [])
         self.use_menu(["7", "0"])
         self.assertIn("The work queue is empty.", self.output)
 
@@ -331,7 +356,7 @@ class TestHistoryEvents(MenuTestCase):
         self.assertEqual(line[3], "Zed")
 
     def test_rejected_transition_adds_no_event_and_changes_nothing(self):
-        save_tickets(make_tickets(), self.path)  # T001 is open and unassigned
+        save_data(self.path, make_tickets(), [])  # T001 is open and unassigned
         with open(self.path, "rb") as file:
             before = file.read()
         self.use_menu(["5", "T001", "in_progress", "12", "T001", "0"])
@@ -341,7 +366,7 @@ class TestHistoryEvents(MenuTestCase):
             self.assertEqual(file.read(), before)
 
     def test_other_rejected_actions_add_no_event(self):
-        save_tickets(make_tickets(), self.path)
+        save_data(self.path, make_tickets(), [])
         self.use_menu([
             "4", "T001", "   ",          # blank staff name
             "4", "T999", "Ada",          # unknown ticket
@@ -362,7 +387,7 @@ class TestHistoryEvents(MenuTestCase):
         self.assertIn("Error: Ticket T404 not found", self.text())
 
     def test_showing_history_does_not_change_the_file(self):
-        save_tickets(make_tickets(), self.path)
+        save_data(self.path, make_tickets(), [])
         with open(self.path, "rb") as file:
             before = file.read()
         self.use_menu(["12", "T001", "0"])
@@ -386,13 +411,13 @@ class TestDuplicateWarning(MenuTestCase):
     def test_matching_title_warns_and_confirming_creates_the_ticket(self):
         self.use_menu(self.FIRST + ["1", "wi-fi down", "Network", "low", "1", "yes", "0"])
         self.assertIn("Warning: similar unresolved ticket(s) already exist: T001.", self.output)
-        self.assertEqual([t["id"] for t in load_tickets(self.path)], ["T001", "T002"])
+        self.assertEqual([t["id"] for t in load_data(self.path)[0]], ["T001", "T002"])
 
     def test_declining_creates_neither_a_ticket_nor_an_event(self):
         self.use_menu(self.FIRST + ["1", "wi-fi down", "Network", "low", "1", "no",
                                     "12", "T001", "0"])
         self.assertIn("Cancelled. No ticket was created.", self.output)
-        self.assertEqual([t["id"] for t in load_tickets(self.path)], ["T001"])
+        self.assertEqual([t["id"] for t in load_data(self.path)[0]], ["T001"])
         self.assertEqual([line[2] for line in event_lines(self.output)], ["CREATE"])
 
     def test_confirming_records_exactly_one_more_create_event(self):
@@ -404,31 +429,165 @@ class TestDuplicateWarning(MenuTestCase):
         self.use_menu(self.FIRST + ["1", "wi-fi down", "Network", "low", "1",
                                     "maybe", "", "no", "0"])
         self.assertEqual(self.text().count("Please answer yes or no."), 2)
-        self.assertEqual(len(load_tickets(self.path)), 1)
+        self.assertEqual(len(load_data(self.path)[0]), 1)
 
     def test_different_category_gives_no_warning(self):
         self.use_menu(self.FIRST + ["1", "wi-fi down", "Hardware", "low", "1", "0"])
         self.assertNotIn("Warning", self.text())
-        self.assertEqual(len(load_tickets(self.path)), 2)
+        self.assertEqual(len(load_data(self.path)[0]), 2)
 
     def test_resolved_ticket_gives_no_warning(self):
         tickets = make_tickets()
         tickets[0]["status"] = "resolved"
-        save_tickets(tickets, self.path)
+        save_data(self.path, tickets, [])
         self.use_menu(["1", "Campus Wi-Fi is down", "Network", "low", "1", "0"])
         self.assertNotIn("Warning", self.text())
-        self.assertEqual(len(load_tickets(self.path)), 3)
+        self.assertEqual(len(load_data(self.path)[0]), 3)
 
     def test_running_out_of_input_at_the_warning_creates_nothing(self):
         self.use_menu(self.FIRST + ["1", "wi-fi down", "Network", "low", "1"])
-        self.assertEqual(len(load_tickets(self.path)), 1)
+        self.assertEqual(len(load_data(self.path)[0]), 1)
 
-class TestKnowledgeLabMenuOption(MenuTestCase):
-    def test_menu_shows_knowledge_lab_at_option_10(self):
+class TestMenuKeysForTheNewFeatures(MenuTestCase):
+    """The new actions must sit on the keys the plan fixes them to."""
+
+    def test_menu_labels_the_new_options(self):
         self.use_menu(["0"])
+        for line in ["9. Escalate overdue tickets",
+                     "10. Show the SLA attention queue",
+                     "11. Show ticket and SLA metrics",
+                     "12. Show a ticket's history",
+                     "13. Engineering Knowledge Lab"]:
+            self.assertIn(line, self.output)
 
-        self.assertIn("10. Engineering Knowledge Lab", self.output)
-        self.assertNotIn("13. Engineering Knowledge Lab", self.output)
-        
+    def test_the_knowledge_lab_is_the_quiz_at_key_13(self):
+        # Key 13 runs the quiz, which asks for a participant before anything else.
+        self.use_menu(["13"])
+        self.assertIn("Participant (A or B): ", self.prompts)
+        self.assertNotIn("Escalated in current cycle:", self.text())
+
+
+class SlaMenuTestCase(MenuTestCase):
+    """A saved world with one overdue ticket (T001) and one that is not due (T002)."""
+
+    def setUp(self):
+        super().setUp()
+        save_data(self.path, [
+            make_ticket("T001", "Overdue Wi-Fi", "Network", "high", 15,
+                        "critical", "open", due_in_minutes=-30),
+            make_ticket("T002", "Laptop later", "Hardware", "low", 1,
+                        "low", "open", due_in_minutes=+600),
+        ], [])
+
+
+class TestEscalateMenuOption(SlaMenuTestCase):
+    def test_escalating_saves_one_event(self):
+        self.use_menu(["9", "0"])
+        self.assertIn("Newly escalated: 1", self.output)
+        events = self.saved_events()
+        self.assertEqual([event["event_type"] for event in events], ["ESCALATE"])
+        self.assertEqual(events[0]["ticket_id"], "T001")
+        self.assertEqual(events[0]["actor"], "Tester")
+
+    def test_the_escalation_marker_is_saved_on_the_ticket(self):
+        self.use_menu(["9", "0"])
+        ticket = self.saved_tickets()[0]
+        self.assertEqual(ticket["escalation_cycle"], 0)
+        self.assertEqual(ticket["escalated_cycle"], 0)
+
+    def test_only_the_overdue_ticket_is_escalated(self):
+        self.use_menu(["9", "0"])
+        self.assertEqual([event["ticket_id"] for event in self.saved_events()], ["T001"])
+
+    def test_escalating_twice_creates_only_one_event(self):
+        self.use_menu(["9", "9", "0"])
+        self.assertIn("Newly escalated: 1", self.output)
+        self.assertIn("Already escalated in this cycle: 1", self.output)
+        self.assertEqual(len(self.saved_events()), 1)
+
+    def test_key_9_is_the_escalation_action_and_not_the_queue(self):
+        self.use_menu(["9", "0"])
+        self.assertIn("Newly escalated: 1", self.output)
+        self.assertNotIn("(overdue tickets first)", self.text())
+
+
+class TestSlaQueueMenuOption(SlaMenuTestCase):
+    def test_key_10_shows_the_queue_with_overdue_tickets_first(self):
+        self.use_menu(["10", "0"])
+        self.assertIn("SLA attention queue (overdue tickets first):", self.output)
+        self.assertIn("1. [OVERDUE] T001", self.text())
+        self.assertIn("2. [on time] T002", self.text())
+
+    def test_key_10_does_not_escalate_anything(self):
+        self.use_menu(["10", "0"])
+        self.assertEqual(self.saved_events(), [])
+        self.assertNotIn("Newly escalated:", self.text())
+
+    def test_showing_the_queue_does_not_change_the_file(self):
+        with open(self.path, "rb") as file:
+            before = file.read()
+        self.use_menu(["10", "0"])
+        with open(self.path, "rb") as file:
+            self.assertEqual(file.read(), before)
+
+
+class TestMetricsMenuOption(SlaMenuTestCase):
+    def test_key_11_shows_the_metrics(self):
+        self.use_menu(["11", "0"])
+        self.assertIn("Total tickets: 2", self.output)
+        self.assertIn("Overdue unresolved: 1", self.output)
+        self.assertIn("Escalated in current cycle: 0", self.output)
+
+    def test_key_11_is_not_the_queue_and_escalates_nothing(self):
+        self.use_menu(["11", "0"])
+        self.assertNotIn("(overdue tickets first)", self.text())
+        self.assertNotIn("Newly escalated:", self.text())
+        self.assertEqual(self.saved_events(), [])
+
+    def test_metrics_after_escalating_count_the_escalated_ticket(self):
+        self.use_menu(["9", "11", "0"])
+        self.assertIn("Escalated in current cycle: 1", self.output)
+
+
+class TestHistorySurvivesARestart(MenuTestCase):
+    def test_history_is_still_there_after_exiting_and_starting_again(self):
+        self.use_menu(["1", "Wi-Fi down", "Network", "high", "15", "0"])
+        self.assertEqual([event["event_type"] for event in self.saved_events()],
+                         ["CREATE"])
+
+        self.output.clear()
+        self.use_menu(["12", "T001", "0"])
+        self.assertNotIn("No history recorded for T001.", self.output)
+        self.assertEqual([line[2] for line in event_lines(self.output)], ["CREATE"])
+
+    def test_every_event_survives_a_second_restart(self):
+        self.use_menu(["1", "Wi-Fi down", "Network", "high", "15",
+                       "4", "T001", "Ada", "0"])
+        self.output.clear()
+        self.use_menu(["12", "T001", "0"])
+        self.assertEqual([line[2] for line in event_lines(self.output)],
+                         ["CREATE", "ASSIGN"])
+
+    def test_escalation_and_its_event_survive_a_restart(self):
+        # Created at 09:00, so the critical ticket (SLA 60 minutes) is due at 10:00.
+        morning = datetime(2026, 10, 14, 9, 0, tzinfo=timezone.utc)
+        self.use_menu(["1", "Wi-Fi down", "Network", "high", "15", "0"],
+                      clock=lambda: morning)
+
+        # Restart at 11:00: the ticket is overdue, so escalate it, then twice over.
+        later = datetime(2026, 10, 14, 11, 0, tzinfo=timezone.utc)
+        self.output.clear()
+        self.use_menu(["9", "9", "0"], clock=lambda: later)
+        self.assertIn("Newly escalated: 1", self.output)
+        self.assertIn("Already escalated in this cycle: 1", self.output)
+
+        # Restart once more: history and metrics must now agree with each other.
+        self.output.clear()
+        self.use_menu(["12", "T001", "11", "0"], clock=lambda: later)
+        self.assertEqual([line[2] for line in event_lines(self.output)],
+                         ["CREATE", "ESCALATE"])
+        self.assertIn("Escalated in current cycle: 1", self.output)
+
+
 if __name__ == "__main__":
     unittest.main()
