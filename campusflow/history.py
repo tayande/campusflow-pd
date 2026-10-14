@@ -5,6 +5,13 @@ from datetime import datetime, timezone
 EVENT_TYPES = ("CREATE", "ASSIGN", "START", "RESOLVE", "REOPEN", "ESCALATE")
 
 
+def clean_actor(actor):
+    """Return the actor label without outer spaces. Raise ValueError if it is blank."""
+    if not isinstance(actor, str) or actor.strip() == "":
+        raise ValueError("Actor cannot be blank")
+    return actor.strip()
+
+
 def next_event_id(events):
     """Return the next ID: the highest existing number plus one, e.g. 'E004'."""
     highest = 0
@@ -24,8 +31,7 @@ def record_event(events, ticket_id, event_type, actor, now,
     """
     if event_type not in EVENT_TYPES:
         raise ValueError(f"Event type must be one of: {', '.join(EVENT_TYPES)}")
-    if not isinstance(actor, str) or actor.strip() == "":
-        raise ValueError("Actor cannot be blank")
+    actor = clean_actor(actor)
     if not isinstance(now, datetime) or now.tzinfo is None:
         raise ValueError("Time must be a timezone-aware datetime")
 
@@ -33,7 +39,7 @@ def record_event(events, ticket_id, event_type, actor, now,
         "event_id": next_event_id(events),
         "ticket_id": ticket_id,
         "event_type": event_type,
-        "actor": actor.strip(),
+        "actor": actor,
         "timestamp": now.astimezone(timezone.utc).isoformat(),
         "before_status": before_status,
         "after_status": after_status,
@@ -41,6 +47,7 @@ def record_event(events, ticket_id, event_type, actor, now,
     }
     events.append(event)
     return event
+
 
 def get_history(events, ticket_id):
     """Return this ticket's events, oldest first. The events list is not changed.

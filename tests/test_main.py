@@ -2,9 +2,18 @@ import json
 import os
 import tempfile
 import unittest
+from datetime import datetime, timezone
 
 from campusflow.main import run
 from campusflow.storage import load_tickets, save_tickets
+
+
+FIXED_TIME = datetime(2026, 10, 14, 10, 0, tzinfo=timezone.utc)
+
+
+def fixed_clock():
+    """A clock that always says the same time, so tests never depend on the real one."""
+    return FIXED_TIME
 
 
 def make_tickets():
@@ -28,16 +37,20 @@ class MenuTestCase(unittest.TestCase):
         self.path = os.path.join(self.folder.name, "tickets.json")
         self.output = []
 
-    def use_menu(self, answers):
-        """Run the menu with these answers; return its exit code."""
-        remaining = list(answers)
+    def use_menu(self, answers, actor="Tester", clock=fixed_clock):
+        """Run the menu with these answers; return its exit code.
+
+        The menu first asks for the operator's name, so it is typed here
+        automatically. Pass actor=None to type it yourself in `answers`.
+        """
+        remaining = list(answers) if actor is None else [actor] + list(answers)
 
         def fake_ask(prompt):
             if not remaining:
                 raise EOFError  # the user ran out of input
             return remaining.pop(0)
 
-        return run(self.path, ask=fake_ask, say=self.output.append)
+        return run(self.path, ask=fake_ask, say=self.output.append, clock=clock)
 
     def text(self):
         return "\n".join(self.output)
@@ -284,6 +297,87 @@ class TestQueueAndReportOptions(WorkflowMenuTestCase):
         before = self.file_text()
         self.use_menu(["7", "8", "0"])
         self.assertEqual(self.file_text(), before)
+
+
+def event_lines(output):
+    """Pick the history lines (they start with an event ID like E001) out of the output."""
+    return [line.split(" | ") for line in output if line[:1] == "E" and " | " in line]
+
+
+class TestHistoryEvents(MenuTestCase):
+    def test_full_lifecycle_records_the_exact_event_sequence(self):
+        self.use_menu([
+            "1", "Wi-Fi down", "Network", "high", "15",   # create T001
+            "4", "T001", "Ada",                            # assign
+            "5", "T001", "in_progress",                    # start
+            "5", "T001", "resolved",                       # resolve
+            "6", "T001",                                   # reopen
+            "12", "T001", "0",                             # show history
+        ])
+        lines = event_lines(self.output)
+        self.assertEqual([line[2] for line in lines],
+                         ["CREATE", "ASSIGN", "START", "RESOLVE", "REOPEN"])
+        self.assertEqual([line[4] for line in lines],
+                         ["- -> open", "open -> open", "open -> in_progress",
+                          "in_progress -> resolved", "resolved -> open"])
+        self.assertEqual([line[0] for line in lines],
+                         ["E001", "E002", "E003", "E004", "E005"])
+
+    def test_every_event_carries_the_actor_and_the_clock_time(self):
+        self.use_menu(["1", "Wi-Fi down", "Network", "low", "1", "12", "T001", "0"],
+                      actor="  Zed ")
+        (line,) = event_lines(self.output)
+        self.assertEqual(line[1], "2026-10-14T10:00:00+00:00")
+        self.assertEqual(line[3], "Zed")
+
+    def test_rejected_transition_adds_no_event_and_changes_nothing(self):
+        save_tickets(make_tickets(), self.path)  # T001 is open and unassigned
+        with open(self.path, "rb") as file:
+            before = file.read()
+        self.use_menu(["5", "T001", "in_progress", "12", "T001", "0"])
+        self.assertIn("Error: Assign the ticket to someone", self.text())
+        self.assertIn("No history recorded for T001.", self.output)
+        with open(self.path, "rb") as file:
+            self.assertEqual(file.read(), before)
+
+    def test_other_rejected_actions_add_no_event(self):
+        save_tickets(make_tickets(), self.path)
+        self.use_menu([
+            "4", "T001", "   ",          # blank staff name
+            "4", "T999", "Ada",          # unknown ticket
+            "6", "T001",                 # reopen a ticket that is not resolved
+            "5", "T001", "banana",       # nonsense status
+            "12", "T001", "0",
+        ])
+        self.assertEqual(self.text().count("Error:"), 4)
+        self.assertIn("No history recorded for T001.", self.output)
+
+    def test_actor_prompt_rejects_blank_and_asks_again(self):
+        self.use_menu(["", "   ", "Zed", "0"], actor=None)
+        self.assertEqual(self.text().count("Error: Actor cannot be blank"), 2)
+        self.assertIn("Goodbye.", self.output)
+
+    def test_history_of_unknown_ticket_shows_an_error(self):
+        self.use_menu(["12", "T404", "0"])
+        self.assertIn("Error: Ticket T404 not found", self.text())
+
+    def test_showing_history_does_not_change_the_file(self):
+        save_tickets(make_tickets(), self.path)
+        with open(self.path, "rb") as file:
+            before = file.read()
+        self.use_menu(["12", "T001", "0"])
+        with open(self.path, "rb") as file:
+            self.assertEqual(file.read(), before)
+
+    def test_two_tickets_keep_separate_histories(self):
+        self.use_menu([
+            "1", "First", "Network", "low", "1",
+            "1", "Second", "Hardware", "low", "1",
+            "4", "T002", "Ada",
+            "12", "T001", "12", "T002", "0",
+        ])
+        lines = event_lines(self.output)
+        self.assertEqual([line[2] for line in lines], ["CREATE", "CREATE", "ASSIGN"])
 
 
 if __name__ == "__main__":

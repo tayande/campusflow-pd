@@ -1,7 +1,14 @@
 import unittest
 from datetime import datetime, timezone
 
-from campusflow.history import EVENT_TYPES, format_event, get_history, record_event
+from campusflow.history import (
+    EVENT_TYPES,
+    clean_actor,
+    format_event,
+    get_history,
+    record_event,
+)
+
 NOW = datetime(2026, 10, 14, 10, 0, tzinfo=timezone.utc)
 
 
@@ -58,6 +65,22 @@ class TestRecordEvent(unittest.TestCase):
     def test_all_six_event_types_exist(self):
         self.assertEqual(set(EVENT_TYPES),
                          {"CREATE", "ASSIGN", "START", "RESOLVE", "REOPEN", "ESCALATE"})
+
+    def test_actor_is_stored_without_outer_spaces(self):
+        events = []
+        event = record_event(events, "T001", "CREATE", "  Peace ", NOW, None, "open")
+        self.assertEqual(event["actor"], "Peace")
+
+
+class TestCleanActor(unittest.TestCase):
+    def test_strips_spaces(self):
+        self.assertEqual(clean_actor("  Ada "), "Ada")
+
+    def test_blank_and_non_text_are_rejected(self):
+        for bad in ["", "   ", None, 7]:
+            with self.assertRaises(ValueError):
+                clean_actor(bad)
+
 
 def make_event(event_id, ticket_id, timestamp, event_type="ASSIGN"):
     """Build a bare event by hand, so these tests do not depend on record_event."""
@@ -122,5 +145,7 @@ class TestFormatEvent(unittest.TestCase):
         event["before_status"] = None
         event["after_status"] = "open"
         self.assertIn("- -> open", format_event(event))
+
+
 if __name__ == "__main__":
     unittest.main()
