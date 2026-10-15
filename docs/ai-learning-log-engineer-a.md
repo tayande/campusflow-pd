@@ -200,3 +200,62 @@ These are the questions I asked while working, with the short answer I got. The 
 | 30 | What should the README contain? | Problem, solution, features, requirements, how to run, the menu with an example, the ticket structure, the priority and status rules, the layout, how to run the tests, how we worked and an honest AI-use statement, plus the team. |
 
 | 31 | Can you give me the README pull request description, and is the log up to date? | Yes. The README PR says honestly that the AI drafted it and that the commands and example session were checked. The log covers Entries 1 to 11 and Q&A 1 to 31. Fields marked ✎ are drafted from my messages for me to confirm.|
+
+
+
+# campusflow pro work Engineer A
+### Interaction #12: SLA engine (PR #32), supplied by the AI
+**Problem:** I needed UTC time helpers, SLA due dates, an overdue check, and a new SLA cycle when a ticket is reopened.
+**My initial understanding:** I thought "overdue" meant the current time minus the due time, a length of time late.
+**Prompt to AI:** "we will go through it one by one. we will start with my first pr. i have created the branch so let me add the file contents into them."
+**Useful AI guidance:** Overdue is a yes/no check that is true only when the current time is strictly after `due_at`. Times are timezone-aware UTC, and `now` is passed in as an argument. Reopening adds 1 to `escalation_cycle`.
+**My independent experiment/test:** I ran `python3 -B -m unittest tests.test_sla`: 31 tests passed. I changed `>` to `>=` in `is_overdue` (line `return now > parse_iso(...)`) and 6 of the 31 tests failed. My first attempt used the wrong text in `sed`, changed nothing, and the tests still passed, so I fixed the command and checked that the file was really modified (the shell prompt showed it as changed) before trusting the result.
+**Verification source or result:** 6 of 31 tests failed with `>=`. AI run (mutation checks, not mine): critical 61 instead of 60 made 9 tests fail; reopen keeping the old `due_at` made 2 fail; no cycle increment made 1 fail; resolved tickets allowed to be overdue made 1 fail.
+**Decision:** **Decision:** Accepted. I used the code as supplied, ran the tests and opened the PR.
+**Related file/commit:** `campusflow/timeutil.py`, `campusflow/sla.py`, `tests/test_sla.py`, PR #32
+**What I can now explain without AI:** A ticket is overdue only when the current time is later than the deadline. At exactly the deadline it is not overdue yet. The `>=` version would mark it overdue one moment too early, and 6 tests check that boundary.
+
+---
+
+### Interaction #13: A stale compiled-file cache (found during the AI's mutation checks)
+**Problem:** While the AI was testing the code by breaking it on purpose, it changed `"critical": 60` to `61`, restored it, and the tests still failed.
+**My initial understanding:** I had not met this problem before. 
+**Prompt to AI:** None. The AI reported this itself while checking the tests.
+**Useful AI guidance:** Python had saved a compiled copy of the module in `__pycache__`. The edit and the restore had the same file size and happened in the same second, so Python reused the old compiled copy. Deleting `__pycache__` and using `python3 -B` fixed it.
+**My independent experiment/test:** I used `python3 -B` for every test run in my own experiments. Running with `-B` tells Python not to write compiled `.pyc` files, so a stale compiled copy cannot be reused.
+**Verification source or result:** AI run: after clearing the cache, the tests matched the restored code.
+**Decision:** I use `python3 -B` when I change code to test the tests.
+**What I can now explain without AI:** `python3 -B` stops Python from compiling the `.py` files to bytecode (`.pyc`), so tests always run the current source.
+
+---
+
+### Interaction #14: Escalation and JSON v2 storage (PR #34), supplied by the AI
+**Problem:** I needed escalation that happens once per SLA cycle, and a storage format that holds events and refuses damaged data.
+**My initial understanding:** ✎
+**Prompt to AI:** **Prompt to AI:** I asked to go through the pull requests one by one, following the agreed plan.
+How do i make sure there is escalation for each sla cycle and then a format of storage that holds events and does not corrupt data.
+**Useful AI guidance:** Mark a ticket as escalated with `escalated_cycle == escalation_cycle`, record the event before setting the marker, validate before writing, write to a temporary file and then `os.replace`, and refuse to overwrite a damaged file.
+**My independent experiment/test:** I made a file containing `{ this is not json` and called `load_data` on it. It raised our own `ValueError` ("The data file is damaged and cannot be read…"), and when I printed the file afterwards it was unchanged.
+**Verification source or result:** 199 tests passed after the PR (12 escalation tests and 24 new storage tests). AI run (mutation checks): no once-per-cycle check made 3 tests fail; marker never set made 4 fail; escalating all unresolved tickets made 7 fail; `load_data` without validation made 29 fail; `save_data` without validation made 1 fail. One mutation survived at first: removing the blank-actor check passed every test, so a test (`test_blank_actor_is_refused_even_when_nothing_is_overdue`) was added, and then it failed as it should.
+**Decision:** **Decision:** Accepted. The patch already included the extra test for the blank actor.
+**Related file/commit:** `campusflow/sla.py`, `campusflow/storage.py`, `tests/test_escalation.py`, `tests/test_storage.py`, PR #34
+**What I can now explain without AI:** **What I can now explain without AI:** When asked, I could not explain in my own words why the escalation marker is a cycle number and not just true/false. The AI explained that a true/false flag cannot tell which SLA cycle a ticket was escalated in, so after a reopen the old "true" would block a new escalation; a cycle number lets the check be "was it escalated in this cycle?". I will re-explain it in my own words.
+---
+
+### Interaction #15: Reviewing Engineer B's audit-history PR (#33)
+**Problem:** Her first description claimed menu integration, an actor prompt and an injectable clock, but the branch had only `history.py` and its tests.
+**My initial understanding:** ✎
+**Prompt to AI:** **My initial understanding:** I thought that insisting on every fix while her feature was unfinished might break future work, and that it was better to accept the current work, see how it meets main, and correct it in later commits.
+**Useful AI guidance:** The AI compared the description with the branch and found the menu work was missing. After she pushed it, the AI merged it into `main` in a scratch copy (clean merge, 163 tests passing) and ran the menu with a fixed clock: the event used the fixed time, but the ticket's `created_at` and `due_at` came from the real clock, because `main.py` did not pass `now=ctx.now` to the ticket functions. It said the program was not broken, because the problem shows only when the clock is injected.
+**My independent experiment/test:** After her next PR was merged, I ran the same fixed-clock check myself, with the clock set to 2026-01-01 09:00 UTC. The ticket's `created_at` and `updated_at` were `2026-01-01T09:00:00+00:00` and `due_at` was `2026-01-01T10:00:00+00:00` (60 minutes later, correct for critical). The saved file was a plain list of tickets with no events, which confirmed that history was only held in memory until the v2 storage was connected.
+**Verification source or result:** My review comments on PR #33. The clock problem was fixed in her next PR.
+**Decision:** I approved the merge and asked for the fix in her next PR. My reasoning: fixing everything while the program is incomplete could break future work, so it is better to accept the current work, see how it meets `main`, and correct it in later commits, as long as later PRs follow the rules. (AI note: the AI had said the program was not broken and that this was a reasonable choice.)
+---
+
+### Interaction #16: Engineer B writes her own code
+**Problem:** I had to decide whether to give Engineer B the AI's reference code for her part.
+**My initial understanding:** ✎
+**Prompt to AI:** "i am not giving her this very version of code you sent to me give her though, she is working on something herself so i will wait for her to send it over via pull request, then we will review it together"
+**Useful AI guidance:** The AI had built reference versions of her PRs. In the first sprint the advice was that the other engineer commits AI code herself with an honest note.
+**Decision:** I did not give her the reference code. She decided to write her part herself and send it in pull requests, which I reviewed. (Note: this is partly her decision. Say so in your own words.)
+---
