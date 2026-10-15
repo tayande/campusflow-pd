@@ -137,9 +137,10 @@ The tests build their own tickets by hand and save only into temporary folders, 
 - Pro pull requests: #32 (SLA engine), #33 (audit history), #34 (escalation and JSON v2 storage), #35 (duplicates and quiz), #36 (queues, menu and v2 wiring), #37, #38 and #39 (documentation).
 
 ## Use of AI
-We used an AI assistant (Claude) as a tutor and reviewer, and for some of the code. In the first sprint the assistant supplied the code for several parts at our request. In CampusFlow Pro, the assistant supplied the code for Engineer A's SLA engine, escalation and storage, and helped review pull requests. Engineer B wrote her own code, and the assistant was used to review it and to explain test results. Each pull request says so in its description. We ran and tested the code, checked it by breaking it on purpose, and each of us kept an AI learning log recording what we asked, what we were given, what we checked and what we can now explain ourselves. See the logs and the reflections in `docs/`.
+We used an AI assistant (Claude) as a tutor and reviewer, and for some of the code. In the first sprint the assistant supplied the code for several parts at our request. In CampusFlow Pro, the assistant supplied the code for Engineer A's SLA engine, escalation and storage, and helped review pull requests. Engineer B wrote a bit of her own code, and the assistant was used to get parts of the code, review it and to explain test results. Each pull request says so in its description. We ran and tested the code, checked it by breaking it on purpose, and each of us kept an AI learning log recording what we asked, what we were given, what we checked and what we can now explain ourselves. See the logs and the reflections in `docs/`.
 
 ## Team
 - Engineer A: Terngu David Ayande (GitHub: tayande). First sprint: ticket creation and validation, the priority engine, JSON storage and the main menu. Pro: time helpers, SLA deadlines, escalation and JSON v2 storage.
 - Engineer B (first sprint): Peace Onma Oigoga (GitHub: onma77). Built assignment, status workflow, work queue and reports.
 - Engineer B (Pro): Offorbuzor Osinaka Divine (GitHub: HerPerception). Built the audit history, duplicate warning, SLA attention queue and metrics, menu wiring and the Engineering Knowledge Lab.
+
