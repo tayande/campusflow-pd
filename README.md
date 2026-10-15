@@ -18,11 +18,13 @@
 - **SLA attention queue** of unresolved tickets, overdue first, with the deadline on each line.
 - **Escalation** of overdue tickets, recorded once per SLA cycle and never changing a ticket's status, priority or assignee.
 - **Metrics** with the counts by status and priority, the overdue unresolved total and the escalations in the current cycle.
-- **History** of every change to a ticket, and an **Engineering Knowledge Lab** quiz.
-- **Saved to a file**, so tickets and their history survive a restart.
+- **Duplicate warning:** creating a ticket with the same title (ignoring case and extra spaces) and category as an unresolved ticket names the existing ticket and asks "Create it anyway? (yes/no)".
+- **History** of every change to a ticket, shown with who made it and when.
+- **Engineering Knowledge Lab:** a ten-question quiz on the SLA and escalation rules; the result is saved to a file.
+- **Saved to a file** (JSON version 2), so tickets and their history survive a restart.
 
 ## Requirements
-Python 3 (written and tested with Python 3.13). There is nothing to install: the program uses only the Python standard library.
+Python 3 (written and tested with Python 3.12 and 3.13). There is nothing to install: the program uses only the Python standard library.
 
 ## How to run
 From the project folder (the one that contains `campusflow/`):
@@ -33,9 +35,13 @@ python3 -m campusflow.main
 
 (On some computers the command is `python` instead of `python3`.) Do not run `python3 campusflow/main.py`; the program must be started as a module so its imports work.
 
-Tickets are saved in `data/tickets.json`, which the program creates on the first change. The file is listed in `.gitignore`, so it is never committed. Delete it to start with an empty list.
+The program first asks for your name, which it records as the actor on every change in the history.
 
-If `data/tickets.json` is damaged (for example, edited by hand into invalid JSON), the program prints a message and stops without changing the file, so no data is lost. Fix or move the file and start again.
+Tickets and their history are saved in `data/tickets.json`, which the program creates on the first change. It holds `{"schema_version": 2, "tickets": [...], "events": [...]}`. The file is listed in `.gitignore`, so it is never committed. Delete it to start with an empty list.
+
+If `data/tickets.json` is damaged (for example, edited by hand into invalid JSON) or is in the old format from the first sprint (a plain list of tickets), the program prints a message and stops without changing the file, so no data is lost. Move or delete the file and start again. Old files are deliberately not converted.
+
+Quiz results are saved in `data/knowledge_sessions/`, one JSON file per session.
 
 ## The menu
 ```
@@ -74,7 +80,7 @@ Work queue (most urgent first):
 ```
 
 ## A ticket
-Each ticket has: `id` (T001, T002, ...), `title`, `category` (Network, Hardware, Software or Other), `urgency` (low, medium or high), `affected_users` (a positive whole number), `priority` (worked out, never typed in), `status` and `assigned_to`.
+Each ticket has: `id` (T001, T002, ...), `title`, `category` (Network, Hardware, Software or Other), `urgency` (low, medium or high), `affected_users` (a positive whole number), `priority` (worked out, never typed in), `status` and `assigned_to`. The Pro version adds `created_at`, `updated_at`, `due_at` (ISO-8601 UTC times), `escalation_cycle` (starts at 0 and goes up by 1 on every reopen) and `escalated_cycle` (empty, or the cycle in which the ticket was last escalated).
 
 ## How priority is worked out
 The first rule that matches wins:
@@ -104,17 +110,20 @@ The SLA attention queue lists the unresolved tickets with overdue ones first, th
 ## Project layout
 ```
 campusflow/
-  main.py       the menu (the only file that uses input() and print())
-  tickets.py    ticket rules: constants, validation, priority, IDs, create
-  storage.py    saving and loading data/tickets.json
-  workflow.py   assign, change status, reopen, work queue
-  reports.py    the summary report, the SLA attention queue and metrics
-  sla.py        deadlines: how due_at is worked out and what "overdue" means
-  history.py    the append-only event history
-tests/          unit tests for every module (unittest)
-docs/           design decisions
+  main.py            the menu (the only file that uses input() and print())
+  tickets.py         ticket rules: constants, validation, priority, IDs, create
+  storage.py         saving and loading data/tickets.json (JSON version 2)
+  workflow.py        assign, change status, reopen, work queue
+  reports.py         the summary report, the SLA attention queue and metrics
+  timeutil.py        timezone-aware UTC time helpers
+  sla.py             deadlines, "overdue", and escalation
+  history.py         the append-only event history
+  duplicates.py      the duplicate-ticket check
+  knowledge_lab.py   the Engineering Knowledge Lab quiz
+tests/               unit tests for every module (unittest)
+docs/                design decisions, AI learning logs and reflections
 ```
-The design decisions (what we agreed before writing code, and why) are in [docs/design-decisions.md](docs/design-decisions.md).
+The design decisions (what we agreed before writing code, and why) are in [docs/design-decisions.md](docs/design-decisions.md). Section 7 covers CampusFlow Pro.
 
 ## Running the tests
 ```bash
@@ -124,11 +133,13 @@ The tests build their own tickets by hand and save only into temporary folders, 
 
 ## How we worked
 - One repository, a separate branch for every feature, a pull request for each, and a review from the other engineer before merging. Nobody worked directly on `main`.
-- Work was tracked in GitHub Issues #1 to #6.
+- The first sprint was tracked in GitHub Issues #1 to #6. CampusFlow Pro was tracked in Issues #18 to #31: Engineer A took #18 to #23, Engineer B took #24 to #29, and #30 (documentation) and #31 (final check) were shared.
+- Pro pull requests: #32 (SLA engine), #33 (audit history), #34 (escalation and JSON v2 storage), #35 (duplicates and quiz), #36 (queues, menu and v2 wiring), #37, #38 and #39 (documentation).
 
 ## Use of AI
-We used an AI assistant (Claude) as a tutor and reviewer, and for some of the code. Because we already understand what the project requires, the assistant supplied the code for several parts at our request; each pull request that contains such code says so in its description. We ran and tested the code, checked it by breaking it on purpose, and kept an AI learning log for each of us recording what we asked, what we were given, what we checked and what we can now explain ourselves. See the logs in `docs/`.
+We used an AI assistant (Claude) as a tutor and reviewer, and for some of the code. In the first sprint the assistant supplied the code for several parts at our request. In CampusFlow Pro, the assistant supplied the code for Engineer A's SLA engine, escalation and storage, and helped review pull requests. Engineer B wrote her own code, and the assistant was used to review it and to explain test results. Each pull request says so in its description. We ran and tested the code, checked it by breaking it on purpose, and each of us kept an AI learning log recording what we asked, what we were given, what we checked and what we can now explain ourselves. See the logs and the reflections in `docs/`.
 
 ## Team
-- Engineer A: Terngu David Ayande (GitHub: tayande). Built ticket creation and validation, the priority engine, JSON storage and the main menu
-- Engineer B: Peace Onma Oigoga (GitHub: onma77). Built assignment, status workflow, work queue and reports.
+- Engineer A: Terngu David Ayande (GitHub: tayande). First sprint: ticket creation and validation, the priority engine, JSON storage and the main menu. Pro: time helpers, SLA deadlines, escalation and JSON v2 storage.
+- Engineer B (first sprint): Peace Onma Oigoga (GitHub: onma77). Built assignment, status workflow, work queue and reports.
+- Engineer B (Pro): Offorbuzor Osinaka Divine (GitHub: HerPerception). Built the audit history, duplicate warning, SLA attention queue and metrics, menu wiring and the Engineering Knowledge Lab.
