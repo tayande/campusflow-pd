@@ -1,5 +1,4 @@
 # AI Learning Log: Engineer A
-YOUR WORDS
 **Fellow:** Terngu David Ayande (GitHub: tayande)
 **AI assistant used:** Claude (chat), as a tutor and reviewer.
 
@@ -267,5 +266,3 @@ These are the questions I asked while working, with the short answer I got. The 
 **My independent experiment/test:** None for this step. It was a decision about how we work, not about code.
 **Decision:** I did not give her the reference code. She decided to write her part herself and send it in pull requests, which I reviewed.
 **What I can now explain without AI:** Authorship is one real thing in engineering that matters the most, it is really hard to explain code that is not authored by you. So it is always advisable to do the authorship of any code yourself so you stand a better chance at knowing and understanding it, it also shows intergrity.
-
----
