@@ -47,21 +47,21 @@
 
 ### Interaction #3: Menu options, tests, and an honest PR description
 
-**Problem:** Introducing the three new options — SLA escalation, the SLA attention queue, and ticket and SLA metrics — while keeping ticket history and the Engineering Knowledge Lab.
+**Problem:** Add the SLA escalation, SLA attention queue, and metrics options while keeping ticket history and the Engineering Knowledge Lab accessible.
 
-**My initial understanding:** The menu numbered its options contiguously, so new features had to take the next free numbers.
+**My initial understanding:** I assumed the new menu options would be assigned the next available numbers in sequence. However, I initially placed the quiz at option 10 and the new options at 9, 11, and 13. My original assumption did not fully account for the intended menu layout.
 
-**Useful AI guidance:** A focused commit message, and a description that says what was built and what was run, without claiming verification that did not happen.
+**Useful AI guidance:** Keep the menu actions connected to their correct functions, and make the commit message and PR description match the actual changes and test results.
 
-**My independent experiment/test:** I ran the unit test suite and checked the menu output against the feature plan.
+**My independent experiment/test:** I checked the menu against the feature plan and ran the unit test suite.
 
-**Verification source or result:** `Ran 264 tests in 0.649s` — `OK`, at the time of this PR.
+**Verification source or result:** At the time, the test output showed `Ran 264 tests in 0.649s` — `OK`. The subsequent review confirmed that all 280 tests passed on the updated branch.
 
-**Decision:** Commit `feat: add SLA queue, metrics, and CLI options`. The PR describes the SLA attention queue, the metrics, the CLI options and the passing run, and nothing more.
+**Decision:** Use the commit message `feat: add SLA queue, metrics, and CLI options` and describe only the changes supported by the code and test results.
 
-**Related file/commit:** PR for `feat/27-queues-cli`, commit `de15610`
+**Related file/commit:** `campusflow/main.py`, commit `de15610`, and the PR for `feat/27-queues-cli`.
 
-**What I can now explain without AI:** A description should be checkable. "The tests pass" is a claim I can support with output; describing code as "verified" when I only ran the suite is not. Metrics and the queue give information without changing a ticket, so they need no save.
+**What I can now explain without AI:** Menu numbering should follow the intended interface, not an assumption that every option must be numbered consecutively. I should compare the planned menu with the actual implementation before claiming that the numbering is correct.
 
 ---
 

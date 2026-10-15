@@ -72,7 +72,6 @@
 > The marking asks for at least one entry where I checked an AI suggestion and corrected or rejected it. I cannot copy this one from anyone. If it happened, I write it. If not, I do a real check now: read the AI's code line by line, find one thing that is wrong, unclear or weaker than it could be, change it, and re-run the tests.
 >
 > Known candidates from the reviews (not written by me, so I only use one if I really checked it myself): the status prompt lists "open" although the menu option cannot set it; non-string input to the logic functions raises `AttributeError` instead of `ValueError`; there is a duplicate `campusflow.tickets` import in `main.py`.
-
 ---
 
 ### Interaction #6: Reviewing my partner's pull request
@@ -128,9 +127,8 @@ A blank title is rejected.
 Zero affected users are rejected.
 The ticket's priority is calculated correctly. Once the task is complete, the developer can link the Issue to the pull request that implements it. Why do we need Issues?
 They help us divide the project into manageable tasks, assign responsibility, and track progress.
-
 ---
 
 ## Part 3: Use of AI statement
 
-Claude supplied most of the code for `workflow.py`, `reports.py`, the menu options and their tests, together with the step-by-step instructions. I did not use a separate chatbot for this project. I committed the code myself on my own branches and each PR says the code was supplied by the AI.
+Claude supplied most of the code for `workflow.py`, `reports.py`, the menu options and their tests, together with the step-by-step instructions. I did not use a separate chatbot for this project. I committed the code myself on my own branches and each PR says the code was supplied by the AI. 
