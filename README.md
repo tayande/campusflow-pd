@@ -143,3 +143,4 @@ We used an AI assistant (Claude) as a tutor and reviewer, and for some of the co
 - Engineer A: Terngu David Ayande (GitHub: tayande). First sprint: ticket creation and validation, the priority engine, JSON storage and the main menu. Pro: time helpers, SLA deadlines, escalation and JSON v2 storage.
 - Engineer B (first sprint): Peace Onma Oigoga (GitHub: onma77). Built assignment, status workflow, work queue and reports.
 - Engineer B (Pro): Offorbuzor Osinaka Divine (GitHub: HerPerception). Built the audit history, duplicate warning, SLA attention queue and metrics, menu wiring and the Engineering Knowledge Lab.
+
