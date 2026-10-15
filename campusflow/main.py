@@ -19,8 +19,14 @@ from campusflow.history import (
     record_event,
 )
 from campusflow.knowledge_lab import run_quiz, session_path_for
-from campusflow.reports import build_report
-from campusflow.storage import DEFAULT_PATH, load_tickets, save_tickets
+from campusflow.reports import (
+    build_metrics,
+    build_report,
+    format_sla_ticket,
+    get_sla_attention_queue,
+)
+from campusflow.sla import escalate_overdue
+from campusflow.storage import DEFAULT_PATH, load_data, save_data
 from campusflow.tickets import (
     CATEGORIES,
     STATUSES,
@@ -288,6 +294,59 @@ def report_action(ctx, ask, say):
     return False
 
 
+def sla_escalation_action(ctx, ask, say):
+    """Escalate overdue tickets and report the results."""
+    result = escalate_overdue(
+        ctx.tickets,
+        ctx.events,
+        ctx.now,
+        ctx.actor,
+    )
+
+    say(f"Newly escalated: {result['newly_escalated']}")
+    say(f"Already escalated in this cycle: {result['already_escalated']}")
+
+    # Ticket data changes when a new escalation is recorded.
+    return result["newly_escalated"] > 0
+
+
+def sla_queue_action(ctx, ask, say):
+    """Display unresolved tickets in SLA attention order."""
+    queue = get_sla_attention_queue(ctx.tickets, ctx.now)
+
+    if not queue:
+        say("No unresolved tickets.")
+        return False
+
+    say("SLA attention queue (overdue tickets first):")
+
+    for number, ticket in enumerate(queue, start=1):
+        say(f"{number}. {format_sla_ticket(ticket, ctx.now)}")
+
+    return False
+
+
+def metrics_action(ctx, ask, say):
+    """Display ticket and SLA metrics."""
+    metrics = build_metrics(ctx.tickets, ctx.now)
+
+    say(f"Total tickets: {metrics['total']}")
+    say(f"Open: {metrics['open']}")
+    say(f"In progress: {metrics['in_progress']}")
+    say(f"Resolved: {metrics['resolved']}")
+    say(f"Overdue unresolved: {metrics['overdue_unresolved']}")
+    say(
+        "Escalated in current cycle: "
+        f"{metrics['escalated_current_cycle']}"
+    )
+
+    say("By priority:")
+    for priority, count in metrics["by_priority"].items():
+        say(f"  {priority}: {count}")
+
+    return False
+
+
 def knowledge_lab_action(ctx, ask, say):
     """Run the Engineering Knowledge Lab without changing tickets."""
     participant = ask_until_valid(
@@ -341,8 +400,11 @@ ACTIONS = {
     "6": ("Reopen a resolved ticket", reopen_action),
     "7": ("Show the work queue", queue_action),
     "8": ("Show the report", report_action),
-    "10": ("Engineering Knowledge Lab", knowledge_lab_action),
+    "9": ("Escalate overdue tickets", sla_escalation_action),
+    "10": ("Show the SLA attention queue", sla_queue_action),
+    "11": ("Show ticket and SLA metrics", metrics_action),
     "12": ("Show a ticket's history", history_action),
+    "13": ("Engineering Knowledge Lab", knowledge_lab_action),
 }
 
 EXIT_KEY = "0"
@@ -360,16 +422,15 @@ def show_menu(say):
 
 
 def run(path=DEFAULT_PATH, ask=input, say=print, clock=utc_now):
-    """Load tickets, run the menu, and return an exit code."""
+    """Load the tickets and the event history, run the menu, and return an exit code."""
     try:
-        tickets = load_tickets(path)
+        tickets, events = load_data(path)
     except (ValueError, OSError) as error:
         say(f"Cannot start: {error}")
         say("Fix or move the data file and try again. Nothing was changed.")
         return 1
 
-    # Events remain in memory in this version.
-    ctx = Context(tickets=tickets, events=[])
+    ctx = Context(tickets=tickets, events=events)
 
     try:
         ctx.actor = ask_until_valid(
@@ -401,7 +462,7 @@ def run(path=DEFAULT_PATH, ask=input, say=print, clock=utc_now):
 
             if changed:
                 try:
-                    save_tickets(ctx.tickets, path)
+                    save_data(path, ctx.tickets, ctx.events)
                 except (OSError, ValueError) as error:
                     say(
                         "WARNING: the change could not be saved: "
