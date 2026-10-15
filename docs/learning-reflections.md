@@ -13,6 +13,25 @@ After the Engineering Knowledge Lab, each fellow picks one question they missed 
 **I changed my understanding because** the boundary is exclusive. `due_at` is the instant the SLA window *closes*, not the instant the ticket becomes overdue: a ticket is overdue strictly after its deadline — one second past it, not at it. I was also wrong that assignment has anything to do with it. `is_overdue` reads only `status` and `due_at`, and the one status with a special rule is `resolved`, which is never overdue no matter how much time passes.
 
 
+---
+
+## Terngu David Ayande — missed questions Q1 (overdue boundary) and Q5 (idempotent escalation)
+
+### Q1: overdue boundary
+
+**I first believed** I though that when a ticket is created at any time, then a time ahead of it will definetely make the ticket overdue
+
+**I checked** `campusflow/sla.py`: `SLA_MINUTES["critical"]` is 60, so a ticket created at 10:00 UTC has `due_at` of 11:00 UTC. `is_overdue` ends with `return now > parse_iso(ticket["due_at"])`. At 11:00 that is `11:00 > 11:00`, which is false. 
+
+**I changed my understanding because** the ticket in question here is a critical ticket whose ugency is a bit different from a ticket that is not critical. so such a ticket can only be overdue at exactly 11:00 UTC
+
+### Q5: idempotent escalation
+
+**I first believed** I first of all believed that escalation would be based on the number of times a ticket is checked
+
+**I checked** `escalate_overdue` in `campusflow/sla.py`: it skips a ticket when `escalated_cycle == escalation_cycle`. 
+
+**I changed my understanding because** ✎ I now understand that the number of escalation does not temper with number of times a ticket is checked.
 ### One Design mistake I made. (Engineer B)
 **The Mistake** - I made a pull request and asserted that I'd written functions that were non-existent. I called clean_actor even when I had not declared the function. I also did not update main.py to match my changes.
 **I originally assumed** I had written it although I hadn't. 
