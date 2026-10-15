@@ -19,19 +19,19 @@ After the Engineering Knowledge Lab, each fellow picks one question they missed 
 
 ### Q1: overdue boundary
 
-**I first believed** I though that when a ticket is created at any time, then a time ahead of it will definetely make the ticket overdue
+**I first believed** that once a ticket is created, any later time would definitely make it overdue.
 
 **I checked** `campusflow/sla.py`: `SLA_MINUTES["critical"]` is 60, so a ticket created at 10:00 UTC has `due_at` of 11:00 UTC. `is_overdue` ends with `return now > parse_iso(ticket["due_at"])`. At 11:00 that is `11:00 > 11:00`, which is false. 
 
-**I changed my understanding because** the ticket in question here is a critical ticket whose ugency is a bit different from a ticket that is not critical. so such a ticket can only be overdue at exactly 11:00 UTC
+**I changed my understanding because** the deadline is the end of the SLA window, not the moment the ticket becomes late. A critical ticket created at 10:00 UTC is due at 11:00 UTC. At exactly 11:00 it is not overdue yet, and it becomes overdue only after 11:00, because the code compares `now > due_at` and does not use `>=`. I had believed that any time after creation would make the ticket overdue, and I now know that it must be strictly later than the deadline. The rule is the same for every priority; only the length of the window changes.
 
 ### Q5: idempotent escalation
 
-**I first believed** I first of all believed that escalation would be based on the number of times a ticket is checked
+**I first believed** that escalation depended on the number of times a ticket is checked.
 
 **I checked** `escalate_overdue` in `campusflow/sla.py`: it skips a ticket when `escalated_cycle == escalation_cycle`. 
 
-**I changed my understanding because** I now understand that the number of escalation does not temper with number of times a ticket is checked.
+**I changed my understanding because** I now understand that the number of escalations does not depend on how many times a ticket is checked. Within one SLA cycle, the first check escalates the ticket and sets the marker, and the later checks see the marker and skip it.
 ### One Design mistake I made. (Engineer B)
 **The Mistake** - I made a pull request and asserted that I'd written functions that were non-existent. I called clean_actor even when I had not declared the function. I also did not update main.py to match my changes.
 **I originally assumed** I had written it although I hadn't. 
