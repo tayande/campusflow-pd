@@ -62,6 +62,14 @@ class TestRecordEvent(unittest.TestCase):
         second = record_event(events, "T001", "RESOLVE", "Peace", NOW, "in_progress", "resolved")
         self.assertEqual(second["details"], {})
 
+    def test_details_argument_is_copied_not_stored(self):
+        events = []
+        given = {"priority": "high"}
+        event = record_event(events, "T001", "CREATE", "Divine", NOW, None, "open", given)
+        # Changing the caller's dictionary afterwards must not reach the event.
+        given["priority"] = "low"
+        self.assertEqual(event["details"], {"priority": "high"})
+
     def test_all_six_event_types_exist(self):
         self.assertEqual(set(EVENT_TYPES),
                          {"CREATE", "ASSIGN", "START", "RESOLVE", "REOPEN", "ESCALATE"})

@@ -1,0 +1,33 @@
+{
+  "participant": "B",
+  "timestamp": "2026-10-15T01:29:57+00:00",
+  "score": 9,
+  "total": 10,
+  "choices": {
+    "Q1": "C",
+    "Q2": "B",
+    "Q3": "C",
+    "Q4": "B",
+    "Q5": "C",
+    "Q6": "D",
+    "Q7": "B",
+    "Q8": "C",
+    "Q9": "B",
+    "Q10": "D"
+  },
+  "explanations": {
+    "Q1": "Due is that itshould be worked on immediately, overdue is that it should have been worked on a long time ago.",
+    "Q2": "The number of affected users is 10, and according to the rule, this makes the urgency high regardless of the priority level",
+    "Q3": "An unassigned ticket can not change staatus",
+    "Q4": "Created_at should reflect the original date it was ceated, not the date it wwas reopened.",
+    "Q5": "Idempotency means you can safely retry an operation multiple times without changing the results beyond the first time.",
+    "Q6": "A corrupted jsoon file should be rejected but not deleted, and also not written to.",
+    "Q7": "A code without boundary tests is unproven at the place it is most likely to fail",
+    "Q8": "I looked it up. The AI I used also warned to never use it.",
+    "Q9": "If you reject it, it might be anothe valid ticket creation. On the other hand, it could be a duplicate",
+    "Q10": "Event account should remain unchanged if an operation was rejected."
+  },
+  "revision_topics": [
+    "overdue boundary"
+  ]
+}
