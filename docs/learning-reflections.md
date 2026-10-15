@@ -12,3 +12,12 @@ After the Engineering Knowledge Lab, each fellow picks one question they missed 
 
 **I changed my understanding because** the boundary is exclusive. `due_at` is the instant the SLA window *closes*, not the instant the ticket becomes overdue: a ticket is overdue strictly after its deadline — one second past it, not at it. I was also wrong that assignment has anything to do with it. `is_overdue` reads only `status` and `due_at`, and the one status with a special rule is `resolved`, which is never overdue no matter how much time passes.
 
+
+### One Design mistake I made. (Engineer B)
+**The Mistake** - I made a pull request and asserted that I'd written functions that were non-existent. I called clean_actor even when I had not declared the function. I also did not update main.py to match my changes.
+**I originally assumed** I had written it although I hadn't. 
+**How it was found out** - The PR reviewer found out the features did not tally with the PR description.
+
+**How it was fixed** - I wrote the missing features and updated main.py. I also ran tests after updating the test file for history.py.
+
+**What I would do differently next time** - I would pay more attention to detail and integrate tests that verify that every feature and function is working properly before asserting or including them in the PR description or even creating a PR request.
