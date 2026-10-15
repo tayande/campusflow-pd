@@ -255,12 +255,8 @@ These are the questions I asked while working, with the short answer I got. The 
 **My independent experiment/test:** After her next PR was merged, I ran the same fixed-clock check myself, with the clock set to 2026-01-01 09:00 UTC. The ticket's `created_at` and `updated_at` were `2026-01-01T09:00:00+00:00` and `due_at` was `2026-01-01T10:00:00+00:00` (60 minutes later, correct for critical). The saved file was a plain list of tickets with no events, which confirmed that history was only held in memory until the v2 storage was connected.
 **Verification source or result:** My review comments on PR #33. The clock problem was fixed in her next PR.
 **Decision:** I approved the merge and asked for the fix in her next PR. My reasoning: fixing everything while the program is incomplete could break future work, so it is better to accept the current work, see how it meets `main`, and correct it in later commits, as long as later PRs follow the rules. (AI note: the AI had said the program was not broken and that this was a reasonable choice.)
-**What I can now explain without AI:** Why the clock problem only showed when the clock was injected. 
-In a normal run, clock is the real clock, so ctx.now is the real time. The two sources then give the same time (only microseconds apart), so I can't tell them apart. Nothing looks wrong, and all the tests passed.
-It showed up only when the clock was injected, meaning set to a fixed time such as 2026-01-01 09:00 UTC. Then:
-the event said 2026-01-01T09:00:00;
-the ticket said today’s real date.
-They no longer agreed, and the mismatch was visible. That is why your fixed-clock check found it and the ordinary tests didn’t. No existing test compared the ticket’s times with the injected clock.
+**What I can now explain without AI:** The ticket functions use the real clock when `now` is not passed in. The menu reads one time per action into `ctx.now` and has to pass it on. At first it passed it to the history events but not to the ticket functions, so the events used the menu's time while `created_at` and `due_at` quietly used the real clock. In a normal run the menu's clock is the real clock, so both times were almost the same and nothing looked wrong. With a fixed clock the two times were different, so the ticket's `created_at` and the event's time did not match. That is how my fixed-clock check found it, and the ordinary tests did not, because none of them compared the ticket's times with the injected clock.
+
 ---
 
 ### Interaction #16: Engineer B writes her own code
