@@ -31,7 +31,7 @@ After the Engineering Knowledge Lab, each fellow picks one question they missed 
 
 **I checked** `escalate_overdue` in `campusflow/sla.py`: it skips a ticket when `escalated_cycle == escalation_cycle`. 
 
-**I changed my understanding because** ✎ I now understand that the number of escalation does not temper with number of times a ticket is checked.
+**I changed my understanding because** I now understand that the number of escalation does not temper with number of times a ticket is checked.
 ### One Design mistake I made. (Engineer B)
 **The Mistake** - I made a pull request and asserted that I'd written functions that were non-existent. I called clean_actor even when I had not declared the function. I also did not update main.py to match my changes.
 **I originally assumed** I had written it although I hadn't. 
@@ -42,35 +42,15 @@ After the Engineering Knowledge Lab, each fellow picks one question they missed 
 **What I would do differently next time** - I would pay more attention to detail and integrate tests that verify that every feature and function is working properly before asserting or including them in the PR description or even creating a PR request.
 
 
-
-## Terngu David Ayande — missed questions Q1 (overdue boundary) and Q5 (idempotent escalation)
-
-### Q1: overdue boundary
-
-**I first believed** I though that when a ticket is created at any time, then a time ahead of it will definetely make the ticket overdue
-
-**I checked** `campusflow/sla.py`: `SLA_MINUTES["critical"]` is 60, so a ticket created at 10:00 UTC has `due_at` of 11:00 UTC. `is_overdue` ends with `return now > parse_iso(ticket["due_at"])`. At 11:00 that is `11:00 > 11:00`, which is false. 
-
-**I changed my understanding because** the ticket in question here is a critical ticket whose ugency is a bit different from a ticket that is not critical. so such a ticket can only be overdue at exactly 11:00 UTC
-
-### Q5: idempotent escalation
-
-**I first believed** I first of all believed that escalation would be based on the number of times a ticket is checked
-
-**I checked** `escalate_overdue` in `campusflow/sla.py`: it skips a ticket when `escalated_cycle == escalation_cycle`. 
-
-**I changed my understanding because** ✎ I now understand that the number of escalation does not temper with number of times a ticket is checked.
-
-
 ### Design mistake (Engineer A)
 
 **1. A rule with no test: the blank actor in escalation**
 **The mistake:** `escalate_overdue(tickets, events, now, actor)` in `campusflow/sla.py` is meant to refuse a blank actor, because every event must say who made it. The design said this, but no test enforced it. When the AI's mutation check removed the blank-actor check, every test still passed.
 
 **How it was found:** by a mutation check, which breaks the code on purpose to see whether the tests notice. The check on PR #34 showed that removing the blank-actor refusal made no test fail.
-**How it was fixed:** `test_blank_actor_is_refused_even_when_nothing_is_overdue` was added in `tests/test_escalation.py`. With the check removed again, that test fails, as it should. ✎ (add it only if you ran this yourself; otherwise say it was the AI's run)
+**How it was fixed:** `test_blank_actor_is_refused_even_when_nothing_is_overdue` was added in `tests/test_escalation.py`. With the check removed again, that test fails, as it should.
 
 **2. A design rule not carried through: the injected clock**
-**The mistake:** The design said time is injected, so `run(..., clock=...)` reads the clock and passes it on. In the first menu integration, events used the injected clock but the ticket functions did not get `now=ctx.now`. So `created_at` and `due_at` came from the real clock.
+**The mistake:** The design said time is injected, so `run(..., clock=...)` reads the clock and passes it on. In the first menu  integration, events used the injected clock but the ticket functions did not get `now=ctx.now`. So `created_at` and `due_at` came from the real clock.
 **How it was found:** a fixed-clock check in Interaction #15: the AI found it, and I repeated it myself with the clock set to 2026-01-01 09:00 UTC.
 **How it was fixed:** in PR #36, `main.py` now passes `now=ctx.now` to the ticket actions. After the fix, `created_at` and `updated_at` were `2026-01-01T09:00:00+00:00` and `due_at` was `2026-01-01T10:00:00+00:00` for a critical ticket.
