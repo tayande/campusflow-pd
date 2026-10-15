@@ -85,7 +85,7 @@
 **Prompt to AI:** "on step 4, the description on the pull request, can you give me the actual content?"
 **Useful AI guidance:** Branch `docs/6-design-decisions` from an updated `main`, add the file, check with `git status` and `git diff --staged`, push, open the PR with the template, request Engineer B as reviewer, and merge only after approval.
 **My independent experiment/test:** I ran `git status` and `git diff --staged` before committing, pushed the branch, and opened the PR from the GitHub banner.
-**Verification source or result:** PR #7 was reviewed by Engineer B and merged. ☐ Her review comments are on the PR's Conversation tab (link them here: `[PR #7 link https://github.com/tayande/campusflow-pd/pull/7]`).
+**Verification source or result:** PR #7 was reviewed by Engineer B and merged. Her review comments are on the PR's Conversation tab (link them here: `[PR #7 link https://github.com/tayande/campusflow-pd/pull/7]`).
 **Decision:** Accepted as given.
 **Related file/commit:** PR #7, `docs/design-decisions.md`
 **What I can now explain without AI:** ✎ A branch lets me work without touching `main`; the PR is where my partner checks the change before it merges, and the merge only happens after her approval. `git diff --staged` shows exactly what is about to be committed.
@@ -148,8 +148,8 @@ s if nothing matched. The tests use `make_tickets()` so each test starts with fr
 **My initial understanding:** ✎ I thought a review meant reading the code and clicking approve.
 **Prompt to AI:** "My teammate has made a push and created a pull request, can you help me review it along with her description so that i will know what she means then draft a review message for me to update on her work."
 **Useful AI guidance:** The AI read her actual branches, ran them (45, 54 and 104 tests, all OK) and drafted review comments with specific points: non-string input raising `AttributeError` instead of `ValueError`, a missing test for moving a ticket to its own status, `build_report` raising `KeyError` for an unknown status, a prompt listing "open" that the option cannot set, and a duplicate import. I asked the AI to write the review that Engineer B would post on my own PR; it declined, because a review only counts if she read the code, and gave her a checklist instead.
-**My independent experiment/test:** ✎ I used the drafted comments as a starting point. ☐ I checked out her branch (`git switch --detach origin/feat/4-status-workflow`) and ran the tests myself. ☐ I posted the comments on GitHub in my own words.
-**Verification source or result:** ☐ Links to my review comments: PR #10 `[https://github.com/tayande/campusflow-pd/pull/10]`, PR #11 `[https://github.com/tayande/campusflow-pd/pull/11]`, PR #14 `[https://github.com/tayande/campusflow-pd/pull/14]`.
+**My independent experiment/test:** ✎ I used the drafted comments as a starting point.I checked out her branch (`git switch --detach origin/feat/4-status-workflow`) and ran the tests myself. ☐ I posted the comments on GitHub in my own words.
+**Verification source or result:** Links to my review comments: PR #10 `[https://github.com/tayande/campusflow-pd/pull/10]`, PR #11 `[https://github.com/tayande/campusflow-pd/pull/11]`, PR #14 `[https://github.com/tayande/campusflow-pd/pull/14]`.
 **Decision:** Merged all three with "Create a merge commit". ✎ The minor points (duplicate import, the prompt listing "open") were noted as non-blocking.
 **Related file/commit:** PR #10, #11 and #14
 **What I can now explain without AI:** ✎ A review should check that the code does what the issue says, that errors are handled, and that the tests would fail if the code were wrong. In `change_status` the checks run before the ticket changes so a rejected move leaves the ticket exactly as it was.
@@ -231,7 +231,6 @@ These are the questions I asked while working, with the short answer I got. The 
 
 ### Interaction #14: Escalation and JSON v2 storage (PR #34), supplied by the AI
 **Problem:** I needed escalation that happens once per SLA cycle, and a storage format that holds events and refuses damaged data.
-**My initial understanding:** ✎
 **Prompt to AI:** **Prompt to AI:** I asked to go through the pull requests one by one, following the agreed plan.
 How do i make sure there is escalation for each sla cycle and then a format of storage that holds events and does not corrupt data.
 **Useful AI guidance:** Mark a ticket as escalated with `escalated_cycle == escalation_cycle`, record the event before setting the marker, validate before writing, write to a temporary file and then `os.replace`, and refuse to overwrite a damaged file.
@@ -244,7 +243,6 @@ How do i make sure there is escalation for each sla cycle and then a format of s
 
 ### Interaction #15: Reviewing Engineer B's audit-history PR (#33)
 **Problem:** Her first description claimed menu integration, an actor prompt and an injectable clock, but the branch had only `history.py` and its tests.
-**My initial understanding:** ✎
 **Prompt to AI:** **My initial understanding:** I thought that insisting on every fix while her feature was unfinished might break future work, and that it was better to accept the current work, see how it meets main, and correct it in later commits.
 **Useful AI guidance:** The AI compared the description with the branch and found the menu work was missing. After she pushed it, the AI merged it into `main` in a scratch copy (clean merge, 163 tests passing) and ran the menu with a fixed clock: the event used the fixed time, but the ticket's `created_at` and `due_at` came from the real clock, because `main.py` did not pass `now=ctx.now` to the ticket functions. It said the program was not broken, because the problem shows only when the clock is injected.
 **My independent experiment/test:** After her next PR was merged, I ran the same fixed-clock check myself, with the clock set to 2026-01-01 09:00 UTC. The ticket's `created_at` and `updated_at` were `2026-01-01T09:00:00+00:00` and `due_at` was `2026-01-01T10:00:00+00:00` (60 minutes later, correct for critical). The saved file was a plain list of tickets with no events, which confirmed that history was only held in memory until the v2 storage was connected.
@@ -254,7 +252,6 @@ How do i make sure there is escalation for each sla cycle and then a format of s
 
 ### Interaction #16: Engineer B writes her own code
 **Problem:** I had to decide whether to give Engineer B the AI's reference code for her part.
-**My initial understanding:** ✎
 **Prompt to AI:** "i am not giving her this very version of code you sent to me give her though, she is working on something herself so i will wait for her to send it over via pull request, then we will review it together"
 **Useful AI guidance:** The AI had built reference versions of her PRs. In the first sprint the advice was that the other engineer commits AI code herself with an honest note.
 **Decision:** I did not give her the reference code. She decided to write her part herself and send it in pull requests, which I reviewed. (Note: this is partly her decision. Say so in your own words.)
