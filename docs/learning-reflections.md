@@ -32,14 +32,18 @@ After the Engineering Knowledge Lab, each fellow picks one question they missed 
 **I checked** `escalate_overdue` in `campusflow/sla.py`: it skips a ticket when `escalated_cycle == escalation_cycle`. 
 
 **I changed my understanding because** I now understand that the number of escalations does not depend on how many times a ticket is checked. Within one SLA cycle, the first check escalates the ticket and sets the marker, and the later checks see the marker and skip it.
+
+
 ### One Design mistake I made. (Engineer B)
-**The Mistake** - I made a pull request and asserted that I'd written functions that were non-existent. I called clean_actor even when I had not declared the function. I also did not update main.py to match my changes.
-**I originally assumed** I had written it although I hadn't. 
-**How it was found out** - The PR reviewer found out the features did not tally with the PR description.
+**The Mistake** - I made a pull request and asserted that I'd written features that were non-existent. I  claimed features in the PR description that were not in the branch. I also did not update main.py to match my changes.
+
+**I originally assumed** I had written it although I hadn't.  I created a pull request on a stale file while the  updated file sat in another folder, and I didn't notice until I had made a PR request. 
+
+**How it was found out** - The PR reviewer (Engineer A, Terngu David) found out the features did not tally with the PR description.
 
 **How it was fixed** - I wrote the missing features and updated main.py. I also ran tests after updating the test file for history.py.
 
-**What I would do differently next time** - I would pay more attention to detail and integrate tests that verify that every feature and function is working properly before asserting or including them in the PR description or even creating a PR request.
+**What I would do differently next time** - I would check each claimed feature with git diff main...HEAD and integrate tests that verify that every feature and function is working properly before asserting or including them in the PR description or even creating a PR request.
 
 
 ### Design mistake (Engineer A)
@@ -54,3 +58,4 @@ After the Engineering Knowledge Lab, each fellow picks one question they missed 
 **The mistake:** The design said time is injected, so `run(..., clock=...)` reads the clock and passes it on. In the first menu  integration, events used the injected clock but the ticket functions did not get `now=ctx.now`. So `created_at` and `due_at` came from the real clock.
 **How it was found:** a fixed-clock check in Interaction #15: the AI found it, and I repeated it myself with the clock set to 2026-01-01 09:00 UTC.
 **How it was fixed:** in PR #36, `main.py` now passes `now=ctx.now` to the ticket actions. After the fix, `created_at` and `updated_at` were `2026-01-01T09:00:00+00:00` and `due_at` was `2026-01-01T10:00:00+00:00` for a critical ticket.
+
